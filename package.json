@@ -1,39 +1,69 @@
 {
-	"name": "db-mcp",
-	"version": "1.0.0",
+	"name": "db-timetable-mcp",
+	"version": "2.0.0",
+	"description": "MCP server for structured Deutsche Bahn station timetable data",
 	"type": "module",
 	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"bin": {
-		"db-mcp": "dist/index.js"
+		"db-timetable-mcp": "dist/index.js"
 	},
+	"files": [
+		"dist",
+		"docs",
+		"README.md",
+		"LICENSE.md",
+		"CHANGELOG.md"
+	],
 	"scripts": {
-		"build": "tsc",
+		"clean": "node -e \"require('node:fs').rmSync('dist',{ recursive: true, force: true })\"",
+		"build": "npm run clean && tsc",
 		"start": "node dist/index.js",
-		"dev": "node --loader ts-node/esm src/index.ts",
-		"dev:sse": "cross-env TRANSPORT_TYPE=sse node --loader ts-node/esm src/index.ts",
+		"dev": "tsx watch src/index.ts",
+		"dev:http": "MCP_TRANSPORT=http tsx watch src/index.ts",
 		"test": "vitest run",
-		"test-ci": "vitest run --coverage.enabled --coverage.reporter='text-summary'",
-		"lint": "npx biome check src",
-		"coverage": "npm run test -- --coverage"
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"typecheck": "tsc --noEmit",
+		"check": "npm run lint && npm run typecheck && npm test && npm run build",
+		"prepublishOnly": "npm run check"
 	},
-	"keywords": ["mcp", "deutsche-bahn", "timetable", "api-client"],
-	"author": "Nils Jorek <nils.jorek@gmail.com>",
+	"keywords": [
+		"mcp",
+		"deutsche-bahn",
+		"timetable",
+		"railway",
+		"llm"
+	],
+	"author": "Nils Jorek <nils.jorek@gmx.de>",
 	"license": "MIT",
-	"description": "MCP Server für die Deutsche Bahn Timetable API",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jorekai/db-timetable-mcp.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jorekai/db-timetable-mcp/issues"
+	},
+	"homepage": "https://github.com/jorekai/db-timetable-mcp#readme",
+	"engines": {
+		"node": ">=22"
+	},
 	"dependencies": {
-		"dotenv": "^17.2.3",
-		"fastmcp": "^3.28.0",
-		"node-fetch": "^3.3.2",
-		"zod": "^4.3.5"
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"dotenv": "^17.4.2",
+		"express": "^5.2.1",
+		"fast-xml-parser": "^5.10.1",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.3.11",
-		"@types/node": "^25.0.10",
-		"@types/node-fetch": "^2.6.13",
-		"@vitest/coverage-v8": "^4.0.18",
-		"eslint": "^9.39.2",
-		"ts-node": "^10.9.2",
-		"typescript": "^5.9.3",
-		"vitest": "^4.0.18"
+		"@biomejs/biome": "^2.5.4",
+		"@types/express": "^5.0.6",
+		"@types/node": "^24.10.0",
+		"@vitest/coverage-v8": "^4.1.10",
+		"tsx": "^4.21.0",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10"
 	}
 }

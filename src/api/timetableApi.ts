@@ -1,86 +1,206 @@
-import fetch from "node-fetch";
 import config from "../config.js";
-import type { PlanParams, StationParams, TimetableParams } from "./types.js";
+import {
+	ApiError,
+	AppError,
+	AuthenticationError,
+	ResourceNotFoundError,
+} from "../utils/errorHandling.js";
+import {
+	mergeTimetables,
+	parseStationsXml,
+	parseTimetableXml,
+} from "./timetableParser.js";
+import type {
+	ApiResult,
+	PlanParams,
+	Station,
+	StationBoardParams,
+	StationParams,
+	TimetableDocument,
+	TimetableParams,
+} from "./types.js";
 
-/**
- * API-Client für die DB Timetable API
- */
-export class TimetableApiClient {
-	private baseUrl: string;
-	private clientId: string;
-	private clientSecret: string;
+export interface TimetableApiConfig {
+	baseUrl: string;
+	clientId: string;
+	clientSecret: string;
+	timeoutMs: number;
+}
 
-	constructor() {
-		this.baseUrl = config.api.baseUrl;
-		this.clientId = config.api.clientId;
-		this.clientSecret = config.api.clientSecret;
+export interface TimetableApi {
+	getCurrentTimetable(
+		params: TimetableParams,
+	): Promise<ApiResult<TimetableDocument>>;
+	getRecentChanges(
+		params: TimetableParams,
+	): Promise<ApiResult<TimetableDocument>>;
+	getPlannedTimetable(
+		params: PlanParams,
+	): Promise<ApiResult<TimetableDocument>>;
+	findStations(params: StationParams): Promise<ApiResult<Station[]>>;
+	getStationBoard(
+		params: StationBoardParams,
+	): Promise<ApiResult<TimetableDocument>>;
+}
+
+export class TimetableApiClient implements TimetableApi {
+	constructor(
+		private readonly apiConfig: TimetableApiConfig = config.api,
+		private readonly fetchImplementation: typeof fetch = globalThis.fetch,
+		private readonly now: () => Date = () => new Date(),
+	) {}
+
+	private assertCredentials(): void {
+		if (this.apiConfig.clientId && this.apiConfig.clientSecret) return;
+		throw new AuthenticationError(
+			"DB-API-Zugangsdaten fehlen. Setze DB_TIMETABLE_CLIENT_ID und DB_TIMETABLE_CLIENT_SECRET in der .env-Datei oder in der MCP-Client-Konfiguration.",
+		);
 	}
 
-	/**
-	 * Sendet eine Anfrage an die API mit entsprechenden Authentifizierungsheadern
-	 */
-	private async request<T>(endpoint: string): Promise<T> {
+	private async fetchXml(endpoint: string): Promise<string> {
+		this.assertCredentials();
 		try {
-			const response = await fetch(`${this.baseUrl}${endpoint}`, {
-				method: "GET",
-				headers: {
-					"DB-Client-Id": this.clientId,
-					"DB-Api-Key": this.clientSecret,
-					Accept: "application/xml",
+			const response = await this.fetchImplementation(
+				`${this.apiConfig.baseUrl}${endpoint}`,
+				{
+					headers: {
+						"DB-Client-Id": this.apiConfig.clientId,
+						"DB-Api-Key": this.apiConfig.clientSecret,
+						Accept: "application/xml",
+					},
+					signal: AbortSignal.timeout(this.apiConfig.timeoutMs),
 				},
-			});
-
-			if (!response.ok) {
-				throw new Error(
-					`API-Fehler: ${response.status} ${response.statusText}`,
+			);
+			this.assertSuccessfulResponse(response, endpoint);
+			return await response.text();
+		} catch (error) {
+			if (error instanceof AppError) throw error;
+			if (error instanceof Error && error.name === "TimeoutError") {
+				throw new ApiError(
+					"Zeitüberschreitung beim Abruf der DB Timetables API",
+					"API_TIMEOUT",
+					504,
 				);
 			}
-
-			// Die API gibt XML zurück, aber wir behandeln es für MCP als Text
-			// In einer erweiterten Implementierung könnte man hier einen XML-Parser verwenden
-			const data = await response.text();
-
-			// Für eine einfache Implementierung geben wir den XML-Text direkt zurück
-			// In einer produktiven Implementierung würde man hier XML nach JSON konvertieren
-			return data as unknown as T;
-		} catch (error) {
-			console.error("Fehler bei der API-Anfrage:", error);
-			throw error;
+			throw new ApiError(
+				"DB Timetables API ist derzeit nicht erreichbar",
+				"API_UNAVAILABLE",
+				503,
+			);
 		}
 	}
 
-	/**
-	 * Ruft den aktuellen Fahrplan für eine Station ab
-	 */
-	async getCurrentTimetable({ evaNo }: TimetableParams): Promise<string> {
-		return this.request<string>(`/fchg/${evaNo}`);
+	private assertSuccessfulResponse(response: Response, endpoint: string): void {
+		if (response.ok) return;
+		if (response.status === 401 || response.status === 403) {
+			throw new AuthenticationError(
+				"Die DB Timetables API hat die Zugangsdaten abgelehnt. Prüfe Client-ID, API-Key und das Timetables-Abonnement.",
+			);
+		}
+		if (response.status === 404) {
+			throw new ResourceNotFoundError(
+				`Keine DB-Fahrplandaten für ${endpoint} gefunden`,
+			);
+		}
+		const code = response.status === 429 ? "API_RATE_LIMIT" : "API_ERROR";
+		throw new ApiError(
+			`DB Timetables API antwortete mit HTTP ${response.status}`,
+			code,
+			response.status,
+		);
 	}
 
-	/**
-	 * Ruft die letzten Änderungen für eine Station ab
-	 */
-	async getRecentChanges({ evaNo }: TimetableParams): Promise<string> {
-		return this.request<string>(`/rchg/${evaNo}`);
+	private result<T>(
+		endpoint: string,
+		data: T,
+		rawXml?: string | Record<string, string>,
+	): ApiResult<T> {
+		return {
+			source: "Deutsche Bahn Timetables API",
+			retrievedAt: this.now().toISOString(),
+			endpoint,
+			data,
+			rawXml,
+		};
 	}
 
-	/**
-	 * Ruft geplante Fahrplandaten für eine bestimmte Station und Zeitspanne ab
-	 */
+	private async getTimetable(
+		endpoint: string,
+		includeRawXml = false,
+	): Promise<ApiResult<TimetableDocument>> {
+		const xml = await this.fetchXml(endpoint);
+		return this.result(
+			endpoint,
+			parseTimetableXml(xml),
+			includeRawXml ? xml : undefined,
+		);
+	}
+
+	async getCurrentTimetable({
+		evaNo,
+		includeRawXml,
+	}: TimetableParams): Promise<ApiResult<TimetableDocument>> {
+		return this.getTimetable(
+			`/fchg/${encodeURIComponent(evaNo)}`,
+			includeRawXml,
+		);
+	}
+
+	async getRecentChanges({
+		evaNo,
+		includeRawXml,
+	}: TimetableParams): Promise<ApiResult<TimetableDocument>> {
+		return this.getTimetable(
+			`/rchg/${encodeURIComponent(evaNo)}`,
+			includeRawXml,
+		);
+	}
+
 	async getPlannedTimetable({
 		evaNo,
 		date,
 		hour,
-	}: PlanParams): Promise<string> {
-		return this.request<string>(`/plan/${evaNo}/${date}/${hour}`);
+		includeRawXml,
+	}: PlanParams): Promise<ApiResult<TimetableDocument>> {
+		const endpoint = `/plan/${encodeURIComponent(evaNo)}/${date}/${hour}`;
+		return this.getTimetable(endpoint, includeRawXml);
 	}
 
-	/**
-	 * Sucht nach Stationen, die dem angegebenen Muster entsprechen
-	 */
-	async findStations({ pattern }: StationParams): Promise<string> {
-		return this.request<string>(`/station/${pattern}`);
+	async findStations({
+		pattern,
+		includeRawXml,
+	}: StationParams): Promise<ApiResult<Station[]>> {
+		const endpoint = `/station/${encodeURIComponent(pattern)}`;
+		const xml = await this.fetchXml(endpoint);
+		return this.result(
+			endpoint,
+			parseStationsXml(xml),
+			includeRawXml ? xml : undefined,
+		);
+	}
+
+	async getStationBoard({
+		evaNo,
+		date,
+		hour,
+		includeRawXml,
+	}: StationBoardParams): Promise<ApiResult<TimetableDocument>> {
+		const planEndpoint = `/plan/${encodeURIComponent(evaNo)}/${date}/${hour}`;
+		const changesEndpoint = `/fchg/${encodeURIComponent(evaNo)}`;
+		const [plannedXml, changesXml] = await Promise.all([
+			this.fetchXml(planEndpoint),
+			this.fetchXml(changesEndpoint),
+		]);
+		const data = mergeTimetables(
+			parseTimetableXml(plannedXml),
+			parseTimetableXml(changesXml),
+		);
+		return this.result(
+			`${planEndpoint} + ${changesEndpoint}`,
+			data,
+			includeRawXml ? { planned: plannedXml, changes: changesXml } : undefined,
+		);
 	}
 }
 
-// Export Singleton
 export const timetableApi = new TimetableApiClient();

@@ -1,124 +1,186 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { timetableApi } from "../api/timetableApi.js";
-import type {
-	PlanParams,
-	StationParams,
-	TimetableParams,
-} from "../api/types.js";
-import { asyncErrorHandler, ValidationError } from "../utils/errorHandling.js";
-import { type LogMetadata, logger } from "../utils/logger.js";
+import type { TimetableApi } from "../api/timetableApi.js";
+import type { ApiResult } from "../api/types.js";
+import { AppError } from "../utils/errorHandling.js";
+import { logger } from "../utils/logger.js";
 
-const TimetableParamsSchema = z.object({
-	evaNo: z
-		.string()
-		.min(1)
-		.describe("EVA-Nummer der Station (z.B. 8000105 für Frankfurt Hbf)"),
+const EvaNoSchema = z
+	.string()
+	.regex(/^\d{7}$/, "Die EVA-Nummer muss aus genau sieben Ziffern bestehen")
+	.describe("Siebenstellige EVA-Nummer, z.B. 8000105 für Frankfurt(Main)Hbf");
+
+function isValidDbDate(value: string): boolean {
+	const match = /^(\d{2})(\d{2})(\d{2})$/.exec(value);
+	if (!match) return false;
+	const year = 2000 + Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const date = new Date(Date.UTC(year, month - 1, day));
+	return (
+		date.getUTCFullYear() === year &&
+		date.getUTCMonth() === month - 1 &&
+		date.getUTCDate() === day
+	);
+}
+
+const DateSchema = z
+	.string()
+	.regex(/^\d{6}$/, "Das Datum muss das Format YYMMDD haben")
+	.refine(isValidDbDate, "Das Datum muss ein gültiger Kalendertag sein")
+	.describe("Betriebstag im DB-Format YYMMDD, z.B. 260717");
+
+const HourSchema = z
+	.string()
+	.regex(/^([01]\d|2[0-3])$/, "Die Stunde muss zwischen 00 und 23 liegen")
+	.describe("Stunde im 24-Stunden-Format HH, z.B. 10");
+
+const IncludeRawXmlSchema = z
+	.boolean()
+	.optional()
+	.default(false)
+	.describe("Zusätzlich die unveränderte DB-XML-Antwort zurückgeben");
+
+const TimetableInputSchema = z.object({
+	evaNo: EvaNoSchema,
+	includeRawXml: IncludeRawXmlSchema,
 });
 
-const PlanParamsSchema = z.object({
-	evaNo: z
-		.string()
-		.min(1)
-		.describe("EVA-Nummer der Station (z.B. 8000105 für Frankfurt Hbf)"),
-	date: z
-		.string()
-		.regex(/^\d{6}$/)
-		.describe("Datum im Format YYMMDD (z.B. 230401 für 01.04.2023)"),
-	hour: z
-		.string()
-		.regex(/^([0-1][0-9]|2[0-3])$/)
-		.describe("Stunde im Format HH (z.B. 14 für 14 Uhr)"),
+const PlanInputSchema = TimetableInputSchema.extend({
+	date: DateSchema,
+	hour: HourSchema,
 });
 
-const StationParamsSchema = z.object({
+const StationInputSchema = z.object({
 	pattern: z
 		.string()
+		.trim()
 		.min(1)
-		.describe("Suchmuster für Stationen (z.B. Frankfurt oder 8000105)"),
+		.max(100)
+		.describe("Stationsname, EVA-Nummer oder DS100-Code als Suchmuster"),
+	includeRawXml: IncludeRawXmlSchema,
 });
 
-export const getCurrentTimetableTool = {
-	name: "getCurrentTimetable",
-	description:
-		"Ruft die aktuellen Fahrplandaten einer bestimmten Bahnhofsstation ab. Dies beinhaltet Informationen zu Ankunfts- und Abfahrtszeiten, Gleisbelegungen, Verspätungen und weitere Echtzeitinformationen für den aktuellen Betriebstag.",
-	parameters: TimetableParamsSchema,
-	execute: asyncErrorHandler(async (args) => {
-		logger.info("Rufe aktuelle Fahrplandaten ab", args as LogMetadata);
+const RawXmlSchema = z.union([z.string(), z.record(z.string(), z.string())]);
 
-		const validateResult = TimetableParamsSchema.safeParse(args);
-		if (!validateResult.success) {
-			throw new ValidationError(
-				"Ungültige Parameter für getCurrentTimetable",
-				validateResult.error.format(),
-			);
-		}
+const ApiResultSchema = z.object({
+	source: z.literal("Deutsche Bahn Timetables API"),
+	retrievedAt: z.string(),
+	endpoint: z.string(),
+	data: z.unknown(),
+	rawXml: RawXmlSchema.optional(),
+});
 
-		const result = await timetableApi.getCurrentTimetable(
-			args as TimetableParams,
-		);
-		return result;
-	}),
+const annotations = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: true,
 };
 
-export const getRecentChangesTool = {
-	name: "getRecentChanges",
-	description:
-		"Ermittelt die neuesten Fahrplanänderungen für eine spezifische Bahnhofsstation. Dazu gehören Verspätungen, Gleisänderungen, Ausfälle und andere kurzfristige Anpassungen im Betriebsablauf, die in Echtzeit aktualisiert werden.",
-	parameters: TimetableParamsSchema,
-	execute: asyncErrorHandler(async (args) => {
-		logger.info("Rufe aktuelle Änderungen ab", args as LogMetadata);
+function toolResult<T>(result: ApiResult<T>): CallToolResult {
+	return {
+		content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+		structuredContent: result as unknown as Record<string, unknown>,
+	};
+}
 
-		const validateResult = TimetableParamsSchema.safeParse(args);
-		if (!validateResult.success) {
-			throw new ValidationError(
-				"Ungültige Parameter für getRecentChanges",
-				validateResult.error.format(),
-			);
-		}
+function toolError(error: unknown): CallToolResult {
+	const appError =
+		error instanceof AppError
+			? error
+			: new AppError("Unerwarteter Fehler beim Abruf der Fahrplandaten");
+	logger.error(appError.message, { code: appError.code, error });
+	return {
+		content: [
+			{
+				type: "text",
+				text: JSON.stringify({
+					error: { code: appError.code, message: appError.message },
+				}),
+			},
+		],
+		isError: true,
+	};
+}
 
-		const result = await timetableApi.getRecentChanges(args as TimetableParams);
-		return result;
-	}),
-};
+async function execute<T>(
+	operation: () => Promise<ApiResult<T>>,
+): Promise<CallToolResult> {
+	try {
+		return toolResult(await operation());
+	} catch (error) {
+		return toolError(error);
+	}
+}
 
-export const getPlannedTimetableTool = {
-	name: "getPlannedTimetable",
-	description:
-		"Holt die geplanten Fahrplandaten für eine angegebene Bahnhofsstation zu einem bestimmten Datum und einer bestimmten Stunde ein. Diese Funktion ist nützlich, um Fahrpläne im Voraus zu planen und Informationen über zukünftige Zugverbindungen zu erhalten.",
-	parameters: PlanParamsSchema,
-	execute: asyncErrorHandler(async (args) => {
-		logger.info("Rufe geplante Fahrplandaten ab", args as LogMetadata);
+export function registerTimetableTools(
+	server: McpServer,
+	api: TimetableApi,
+): void {
+	server.registerTool(
+		"getStationBoard",
+		{
+			title: "Live-Bahnhofstafel abrufen",
+			description:
+				"Liefert eine zuverlässige Bahnhofstafel, indem der Sollfahrplan der gewählten Stunde mit allen bekannten Echtzeitänderungen zusammengeführt wird. Für Gleise und Zeiten immer effective verwenden; planned und changed erklären die Abweichung.",
+			inputSchema: PlanInputSchema,
+			outputSchema: ApiResultSchema,
+			annotations,
+		},
+		(args) => execute(() => api.getStationBoard(args)),
+	);
 
-		const validateResult = PlanParamsSchema.safeParse(args);
-		if (!validateResult.success) {
-			throw new ValidationError(
-				"Ungültige Parameter für getPlannedTimetable",
-				validateResult.error.format(),
-			);
-		}
+	server.registerTool(
+		"getCurrentTimetable",
+		{
+			title: "Vollständige Fahrplanänderungen abrufen",
+			description:
+				"Liefert den vollständigen aktuell bekannten Änderungsbestand der DB Timetables API für eine Station. Das sind Änderungsdaten und keine fertige Bahnhofstafel; für eine zusammengeführte Anzeige getStationBoard verwenden.",
+			inputSchema: TimetableInputSchema,
+			outputSchema: ApiResultSchema,
+			annotations,
+		},
+		(args) => execute(() => api.getCurrentTimetable(args)),
+	);
 
-		const result = await timetableApi.getPlannedTimetable(args as PlanParams);
-		return result;
-	}),
-};
+	server.registerTool(
+		"getRecentChanges",
+		{
+			title: "Jüngste Fahrplanänderungen abrufen",
+			description:
+				"Liefert ausschließlich Änderungen, die der DB Timetables API innerhalb der letzten zwei Minuten bekannt wurden. Dieses Delta eignet sich für häufige Aktualisierungen nach einem initialen vollständigen Abruf.",
+			inputSchema: TimetableInputSchema,
+			outputSchema: ApiResultSchema,
+			annotations,
+		},
+		(args) => execute(() => api.getRecentChanges(args)),
+	);
 
-export const findStationsTool = {
-	name: "findStations",
-	description:
-		"Durchsucht das Verzeichnis der Bahnhofsstationen anhand eines gegebenen Suchmusters. Dies kann der Name der Station oder die EVA-Nummer sein. Das Tool liefert eine Liste von Stationen, die dem Suchmuster entsprechen.",
-	parameters: StationParamsSchema,
-	execute: asyncErrorHandler(async (args) => {
-		logger.info("Suche nach Stationen", args as LogMetadata);
+	server.registerTool(
+		"getPlannedTimetable",
+		{
+			title: "Sollfahrplan abrufen",
+			description:
+				"Liefert den statischen Sollfahrplan einer Station für einen Betriebstag und eine Stunde. Die Antwort enthält geplante Zeiten, Gleise und Fahrtwege, jedoch keine später bekannt gewordenen Echtzeitabweichungen.",
+			inputSchema: PlanInputSchema,
+			outputSchema: ApiResultSchema,
+			annotations,
+		},
+		(args) => execute(() => api.getPlannedTimetable(args)),
+	);
 
-		const validateResult = StationParamsSchema.safeParse(args);
-		if (!validateResult.success) {
-			throw new ValidationError(
-				"Ungültige Parameter für findStations",
-				validateResult.error.format(),
-			);
-		}
-
-		const result = await timetableApi.findStations(args as StationParams);
-		return result;
-	}),
-};
+	server.registerTool(
+		"findStations",
+		{
+			title: "Bahnhöfe suchen",
+			description:
+				"Sucht Stationen anhand eines Namenspräfixes, einer EVA-Nummer oder eines DS100-Codes und liefert eindeutige Stationskennungen sowie bekannte Gleise und Metastationen als strukturiertes JSON.",
+			inputSchema: StationInputSchema,
+			outputSchema: ApiResultSchema,
+			annotations,
+		},
+		(args) => execute(() => api.findStations(args)),
+	);
+}

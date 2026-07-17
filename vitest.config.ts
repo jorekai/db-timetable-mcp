@@ -8,7 +8,13 @@ export default defineConfig({
 		exclude: ["node_modules/", "dist/**", "vitest.config.ts", "**/types.ts"],
 		coverage: {
 			provider: "v8",
-			reporter: ["text", "json", "html"],
+			reporter: ["text", "json-summary", "html"],
+			thresholds: {
+				lines: 85,
+				functions: 85,
+				branches: 80,
+				statements: 85,
+			},
 			exclude: [
 				"node_modules/",
 				"src/tests/**",
