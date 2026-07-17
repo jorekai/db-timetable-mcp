@@ -1,161 +1,186 @@
-[![smithery badge](https://smithery.ai/badge/@jorekai/db-timetable-mcp)](https://smithery.ai/server/@jorekai/db-timetable-mcp)
 # DB Timetable MCP Server
 
-Ein Model Context Protocol (MCP) Server für die Deutsche Bahn Timetable API. Der Server bietet MCP-Tools und -Ressourcen, um auf Fahrplandaten, Stationsinformationen und Zugänderungen zuzugreifen.
+[![CI](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml)
+[![Smithery](https://smithery.ai/badge/@jorekai/db-timetable-mcp)](https://smithery.ai/server/@jorekai/db-timetable-mcp)
 
-**Pflicht zur Namensnennung:**  
+Ein produktionsreifer Model Context Protocol Server für die offizielle Deutsche-Bahn-Timetables-API. Er übersetzt das kompakte DB-XML in semantisches JSON und führt Sollfahrplan und Echtzeitänderungen zu einer verlässlichen Bahnhofstafel zusammen.
 
-Dieses Projekt stellt die Fahrplandaten der Deutschen Bahn bereit, die unter der [Creative Commons Attribution 4.0 International Lizenz (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) öffentlich einsehbar sind.
+## Warum dieser Server?
 
-Weitere Infos zur API und Lizenzbedingungen findest du unter [developers.deutschebahn.com](https://developers.deutschebahn.com/). API Requests unterliegen den Bedingungen der Lizenz.
+- **Korrekte Gleise und Zeiten:** `effective` enthält den tatsächlich anzuzeigenden Wert; `planned` und `changed` erklären Abweichungen.
+- **LLM-freundlich:** Tools liefern `structuredContent`, beschreibende JSON-Schemas und ein abrufbares Datenmodell.
+- **MCP-konform:** Offizielles TypeScript-SDK, stdio für lokale Clients und stateless Streamable HTTP für Remote-Betrieb.
+- **Sicherer Betrieb:** Keine Logs auf `stdout`, lokale Bindung als Standard, Host-Allowlist, Timeouts, Non-root-Container und reproduzierbares Lockfile.
+- **Nachvollziehbar:** Unit-, Vertrags- und Transporttests, Coverage-Grenzen, CI, Dependency- und Secret-Checks.
 
+## Schnellstart
 
-## Funktionen
-
-- **Aktuelle Fahrplände**: Abrufen aktueller Fahrplandaten für eine Station
-- **Fahrplanänderungen**: Tracking der neuesten Änderungen
-- **Geplante Fahrpläne**: Zugriff auf geplante Fahrplandaten für einen bestimmten Zeitpunkt
-- **Stationssuche**: Suche nach Bahnhofsstationen anhand von Namen oder Codes
-
-## Voraussetzungen
-
-- Node.js 18 oder höher
-- API-Zugangsdaten für die DB Timetable API (Client-ID und Client-Secret)
-
-## Installation
-
-1. Repository klonen:
-   ```
-   git clone <repository-url>
-   cd db-mcp
-   ```
-
-2. Abhängigkeiten installieren:
-   ```
-   npm install
-   ```
-
-3. TypeScript-Code kompilieren:
-   ```
-   npm run build
-   ```
-
-## Konfiguration
-
-Erstelle eine `.env`-Datei im Root-Verzeichnis des Projekts mit folgenden Umgebungsvariablen:
-
-```
-DB_TIMETABLE_CLIENT_ID=deine-client-id
-DB_TIMETABLE_CLIENT_SECRET=dein-client-secret
-TRANSPORT_TYPE=stdio
-PORT=8080
-SSE_ENDPOINT=/sse
-LOG_LEVEL=info
-```
-
-### Konfigurationsoptionen
-
-- `DB_TIMETABLE_CLIENT_ID`: Client-ID für die DB API (erforderlich)
-- `DB_TIMETABLE_CLIENT_SECRET`: Client-Secret für die DB API (erforderlich)
-- `TRANSPORT_TYPE`: Transporttyp für den MCP-Server (`stdio` oder `sse`, Standard: `stdio`)
-- `PORT`: Port für den SSE-Server (Standard: `8080`)
-- `SSE_ENDPOINT`: Endpunkt für SSE-Verbindungen (Standard: `/sse`)
-- `LOG_LEVEL`: Logging-Level (`debug`, `info`, `warn`, `error`, Standard: `info`)
-
-## Verwendung
-
-### Server starten
-
-Im stdio-Modus (für CLI-Tests und Debugging):
+Voraussetzungen: Node.js 22 oder 24 LTS sowie ein abonniertes Timetables-Produkt im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables).
 
 ```bash
+git clone https://github.com/jorekai/db-timetable-mcp.git
+cd db-timetable-mcp
+npm ci
+cp .env.example .env
+```
+
+In `.env` eintragen:
+
+```dotenv
+DB_TIMETABLE_CLIENT_ID=deine-client-id
+DB_TIMETABLE_CLIENT_SECRET=dein-api-key
+```
+
+Dann bauen und starten:
+
+```bash
+npm run build
 npm start
 ```
 
-Im SSE-Modus (für Webclients):
+Im stdio-Modus wartet der Prozess auf einen MCP-Client. Statusmeldungen gehen ausschließlich nach `stderr`; `stdout` bleibt für JSON-RPC reserviert.
 
-```bash
-TRANSPORT_TYPE=sse npm start
+## Claude Desktop
+
+Zuerst `npm ci && npm run build` ausführen. Anschließend einen absoluten Pfad in `claude_desktop_config.json` verwenden.
+
+macOS/Linux:
+
+```json
+{
+  "mcpServers": {
+    "db-timetable": {
+      "command": "node",
+      "args": ["/absolute/path/db-timetable-mcp/dist/index.js"]
+    }
+  }
+}
 ```
 
-### Mit Inspect-Modus testen
+Windows:
 
-Der Server kann mit dem FastMCP Inspector getestet werden:
-
-```bash
-npx fastmcp inspect path/to/index.js
+```json
+{
+  "mcpServers": {
+    "db-timetable": {
+      "command": "node",
+      "args": ["C:\\absolute\\path\\db-timetable-mcp\\dist\\index.js"]
+    }
+  }
+}
 ```
 
-### MCP-Tools
+Die `.env`-Datei wird sowohl im aktuellen Arbeitsverzeichnis als auch neben dem Projektverzeichnis gesucht. Das funktioniert auch dann, wenn Claude Desktop den kompilierten Server aus einem anderen Arbeitsverzeichnis startet. Alternativ können die beiden Zugangsdaten im `env`-Objekt des MCP-Eintrags gesetzt werden.
 
-Der Server stellt folgende Tools bereit:
+Nach einer Konfigurationsänderung Claude Desktop vollständig beenden und neu starten. Weitere Hinweise stehen unter [Fehlerbehebung](#fehlerbehebung).
 
-1. **getCurrentTimetable**: Ruft aktuelle Fahrplandaten für eine Station ab
-   - Parameter: `evaNo` - EVA-Nummer der Station (z.B. 8000105 für Frankfurt Hbf)
+## Tools
 
-2. **getRecentChanges**: Ruft aktuelle Änderungen für eine Station ab
-   - Parameter: `evaNo` - EVA-Nummer der Station (z.B. 8000105 für Frankfurt Hbf)
+| Tool | Zweck |
+|---|---|
+| `getStationBoard` | Empfohlen: verbindet Sollfahrplan und vollständige Änderungen zu einer Live-Bahnhofstafel |
+| `getPlannedTimetable` | Statischer Sollfahrplan für EVA-Nummer, Datum und Stunde |
+| `getCurrentTimetable` | Vollständiger Änderungsbestand (`fchg`); aus Kompatibilitätsgründen so benannt |
+| `getRecentChanges` | Änderungen der letzten zwei Minuten (`rchg`) für inkrementelle Aktualisierungen |
+| `findStations` | Stationssuche nach Name, EVA-Nummer oder DS100-Code |
 
-3. **getPlannedTimetable**: Ruft geplante Fahrplandaten für eine Station ab
-   - Parameter: 
-     - `evaNo` - EVA-Nummer der Station (z.B. 8000105 für Frankfurt Hbf)
-     - `date` - Datum im Format YYMMDD (z.B. 230401 für 01.04.2023)
-     - `hour` - Stunde im Format HH (z.B. 14 für 14 Uhr)
+Alle Tools akzeptieren optional `includeRawXml: true`. Die vollständige Referenz mit Beispielen steht in [docs/api.md](docs/api.md).
 
-4. **findStations**: Sucht nach Stationen anhand eines Suchmusters
-   - Parameter: `pattern` - Suchmuster (z.B. "Frankfurt" oder "BLS")
+## Datenmodell
 
-### MCP-Ressourcen
+Ein Ereignis für Ankunft oder Abfahrt sieht verkürzt so aus:
 
-Der Server stellt folgende Ressourcen bereit:
+```json
+{
+  "planned": { "time": { "local": "2026-07-17T10:20" }, "platform": "8" },
+  "changed": { "time": { "local": "2026-07-17T10:27" }, "platform": "10" },
+  "effective": { "time": { "local": "2026-07-17T10:27" }, "platform": "10" },
+  "delayMinutes": 7,
+  "platformChanged": true,
+  "isCancelled": false
+}
+```
 
-1. **Aktuelle Fahrplandaten**: `db-api:timetable/current/{evaNo}`
-2. **Aktuelle Fahrplanänderungen**: `db-api:timetable/changes/{evaNo}`
-3. **Geplante Fahrplandaten**: `db-api:timetable/planned/{evaNo}/{date}/{hour}`
-4. **Stationssuche**: `db-api:station/{pattern}`
+Für Antworten an Reisende immer `effective` verwenden. Das Modell kann dieselbe Erklärung über die Ressource `db-timetable://docs/data-model` abrufen. Details: [docs/data-model.md](docs/data-model.md).
+
+## Streamable HTTP und Docker
+
+Direkt lokal starten:
+
+```bash
+MCP_TRANSPORT=http npm start
+```
+
+- MCP-Endpunkt: `http://127.0.0.1:3000/mcp`
+- Healthcheck: `http://127.0.0.1:3000/health`
+
+Mit Docker Compose:
+
+```bash
+docker compose up --build -d
+docker compose ps
+curl http://127.0.0.1:3000/health
+```
+
+Compose bindet den Port absichtlich nur an Loopback, startet als nicht privilegierter Benutzer und verwendet ein schreibgeschütztes Dateisystem. Für einen öffentlichen Endpunkt sind zusätzlich TLS und Authentifizierung über einen Reverse Proxy erforderlich. `ALLOWED_HOSTS` muss alle erlaubten Hostnamen enthalten.
+
+## Konfiguration
+
+| Variable | Standard | Beschreibung |
+|---|---:|---|
+| `DB_TIMETABLE_CLIENT_ID` | – | DB-Client-ID, für API-Aufrufe erforderlich |
+| `DB_TIMETABLE_CLIENT_SECRET` | – | DB-API-Key, für API-Aufrufe erforderlich |
+| `DB_TIMETABLE_BASE_URL` | offizielle v1-URL | Alternative Basis-URL, primär für Tests |
+| `DB_TIMETABLE_TIMEOUT_MS` | `15000` | Request-Timeout zwischen 1000 und 120000 ms |
+| `MCP_TRANSPORT` | `stdio` | `stdio` oder `http` |
+| `HOST` | `127.0.0.1` | HTTP-Bindeadresse |
+| `PORT` | `3000` | HTTP-Port |
+| `MCP_ENDPOINT` | `/mcp` | Streamable-HTTP-Pfad |
+| `ALLOWED_HOSTS` | – | Kommaseparierte Host-Allowlist; bei `0.0.0.0`/`::` verpflichtend |
+| `DOTENV_CONFIG_PATH` | – | Expliziter absoluter Pfad zu einer Env-Datei |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` oder `error` |
+
+Die alten Werte `TRANSPORT_TYPE=sse|httpStream` und `SSE_ENDPOINT` werden für eine sanfte Migration weiterhin auf Streamable HTTP abgebildet.
 
 ## Entwicklung
 
-### Projekt-Struktur
-
-```
-db-mcp/
-├── src/
-│   ├── api/             # API-Client und Typen
-│   ├── tools/           # MCP-Tools
-│   ├── resources/       # MCP-Ressourcen
-│   ├── utils/           # Hilfsfunktionen
-│   ├── config.ts        # Konfiguration
-│   └── index.ts         # Haupteinstiegspunkt
-├── dist/                # Kompilierte Dateien
-├── .env                 # Umgebungsvariablen
-├── package.json
-├── tsconfig.json
-└── README.md
+```bash
+npm run dev          # stdio mit Watch-Modus
+npm run dev:http     # Streamable HTTP mit Watch-Modus
+npm run check        # Lint, Typen, Tests und Build
+npm run test:coverage
 ```
 
-### NPM-Skripte
+Weitere Dokumente:
 
-- `npm run build`: Kompiliert den TypeScript-Code
-- `npm start`: Startet den Server
-- `npm run dev`: Startet den Server im Entwicklungsmodus mit automatischem Neuladen
-- `npm test`: Führt Tests aus
+- [API-Referenz](docs/api.md)
+- [Datenmodell](docs/data-model.md)
+- [Architektur](docs/architecture.md)
+- [Teststrategie](TESTING.md)
+- [Beitragen](CONTRIBUTING.md)
+- [Sicherheitsrichtlinie](SECURITY.md)
+- [Änderungshistorie](CHANGELOG.md)
 
-## Erweiterbarkeit
+## Fehlerbehebung
 
-Potenzielle Erweiterungen
-1. Datenverarbeitung und -anreicherung
-   - Semantische Fahrplandatenverarbeitung: XML zu strukturiertem JSON mit semantischer Anreicherung
-   - Historische Datenanalyse für Verspätungen und Betriebsstörungen
-   - Integration multimodaler Verkehrsverbindungen
-2. Erweiterte MCP-Tools
-   - Routenplanung zwischen Stationen
-   - KI-basierte Verspätungs- und Auslastungsprognosen
-   - Reisestörungsanalyse
-   - Barrierefreiheitscheck für Stationen und Verbindungen
+**`Expected "," or "]" after array element` in Claude Desktop**
 
-## Lizenz
+Auf Version 2 aktualisieren und neu bauen. Frühere Versionen schrieben Logzeilen auf den stdio-Protokollkanal; Version 2 nutzt dafür ausschließlich `stderr`.
 
-MCP Server: [MIT Lizenz](LICENSE)
+**`DB-API-Zugangsdaten fehlen` trotz `.env`**
 
-DB Timetable API: [Creative Commons Namensnennung 4.0 International Lizenz](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables)
+Die Datei muss im Repository-Root neben `package.json` liegen. Bei einem anderen Ort `DOTENV_CONFIG_PATH` absolut setzen. Keine Anführungszeichen oder zusätzlichen Leerzeichen um die Werte verwenden.
+
+**401/403 von der DB API**
+
+Prüfen, ob Client-ID und API-Key zusammengehören und die Anwendung das Produkt Timetables abonniert hat.
+
+**Falsches Gleis**
+
+`getStationBoard` verwenden und `effective.platform` lesen. `planned.platform` ist ausdrücklich das Sollgleis; `changed.platform` ist nur gesetzt, wenn die DB eine Änderung gemeldet hat.
+
+## Datenquelle und Lizenz
+
+Die Fahrplandaten stammen von der Deutschen Bahn und werden über die [Timetables API 1.0.274](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160) bereitgestellt. Laut DB API Marketplace stehen die Daten unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); die Namensnennung der Deutschen Bahn ist bei Nutzung der Daten erforderlich. Der Marketplace nennt derzeit ein Limit von 60 Aufrufen pro Minute.
+
+Der MCP-Server selbst steht unter der [MIT-Lizenz](LICENSE.md).

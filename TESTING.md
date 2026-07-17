@@ -1,207 +1,62 @@
-# Testing des DB Timetable MCP Servers
+# Teststrategie
 
-Dieses Dokument beschreibt verschiedene Methoden zum Testen und Debuggen des DB Timetable MCP Servers.
+Die Testpyramide besteht aus schnellen Parser- und Konfigurationstests, MCP-Vertragstests über In-Memory-Transporte und einem echten Streamable-HTTP-Client gegen einen temporären lokalen Server. Externe DB-Aufrufe werden in automatischen Tests nicht ausgeführt.
 
-## Automatische Tests
-
-Der Server enthält automatische Tests, die mit Vitest ausgeführt werden können:
+## Komplette Prüfung
 
 ```bash
-npm test
+npm ci
+npm run check
+npm run test:coverage
+npm audit --audit-level=high
 ```
 
-Die Tests überprüfen:
-- API-Client-Funktionalität
-- Tool-Implementierung
-- Server-Integration
+`npm run check` führt Biome, TypeScript, alle Vitest-Suites und den Produktionsbuild aus. Die Coverage-Grenzen liegen bei 85 % für Zeilen, Funktionen und Statements sowie 80 % für Branches.
 
-## Manuelles Testen
+## Testbereiche
 
-### Mit FastMCP Inspector
+| Suite | Abdeckung |
+|---|---|
+| `timetableParser.test.ts` | XML-Validierung, semantische Felder, Zeitstempel, Gleise, Meldungen und Merge-Logik |
+| `api.test.ts` | Auth-Header, URL-Kodierung, Fehlerabbildung, Roh-XML-Option und Bahnhofstafel |
+| `server.test.ts` | MCP-Toolschemas, strukturierte Ausgaben, Eingabevalidierung und Ressourcen |
+| `transport.test.ts` | Healthcheck, stateless Streamable HTTP und Ablehnung des alten SSE-GET-Flows |
+| `stdio.e2e.test.ts` | Echter MCP-Handshake mit einem gestarteten stdio-Unterprozess und stderr-Logging |
+| `config.test.ts` | `.env`-Auflösung, sichere Netzwerkstandards und Legacy-Migration |
+| `utils/*` | Fehlerklassen und stderr-only Logging |
 
-Der FastMCP Inspector ist ein Befehlszeilenwerkzeug, mit dem MCP-Server interaktiv getestet werden können.
+## Manueller MCP-Test
 
-1. Installiere den FastMCP Inspector global:
-   ```bash
-   npm install -g fastmcp
-   ```
-
-2. Starte den Server im stdio-Modus:
-   ```bash
-   npm start
-   ```
-
-3. In einem anderen Terminal-Fenster führe den Inspector aus:
-   ```bash
-   fastmcp inspect
-   ```
-
-4. Verwende den Inspector, um mit den Tools und Ressourcen zu interagieren.
-
-### Testen im stdio-Modus
-
-Im stdio-Modus arbeitet der Server über die Standardein- und -ausgabe. Dies ist nützlich für die Entwicklung und das Debugging.
-
-1. Starte den Server:
-   ```bash
-   npm start
-   ```
-
-2. Sende MCP-formatierte Nachrichten, z.B.:
-   ```json
-   {"type":"request","id":"test-1","method":"tool","params":{"tool":"getCurrentTimetable","input":{"evaNo":"8000105"}}}
-   ```
-
-### Testen im SSE-Modus
-
-Im SSE-Modus (Server-Sent Events) erstellt der Server einen HTTP-Endpunkt, der für Webanwendungen zugänglich ist.
-
-1. Starte den Server im SSE-Modus:
-   ```bash
-   TRANSPORT_TYPE=sse npm start
-   ```
-
-2. Verwende einen SSE-Client, um zu testen (z.B. mit einer Browserkonsole oder einem Tool wie curl).
-
-## Test-Beispiele
-
-### Aktuelle Fahrplandaten abrufen
-
-```json
-{
-  "type": "request",
-  "id": "test-1",
-  "method": "tool",
-  "params": {
-    "tool": "getCurrentTimetable",
-    "input": {
-      "evaNo": "8000105"
-    }
-  }
-}
+```bash
+npm run build
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-### Stationssuche
+Im Inspector zuerst `findStations` mit `Frankfurt` und danach `getStationBoard` mit der gefundenen EVA-Nummer verwenden.
 
-```json
-{
-  "type": "request",
-  "id": "test-2",
-  "method": "tool",
-  "params": {
-    "tool": "findStations",
-    "input": {
-      "pattern": "Frankfurt"
-    }
-  }
-}
+## Streamable HTTP
+
+```bash
+MCP_TRANSPORT=http npm start
+curl http://127.0.0.1:3000/health
 ```
 
-### Geplante Fahrplandaten abrufen
+Der vollständige MCP-Vertrag wird bereits automatisiert mit dem offiziellen TypeScript-Client getestet. Für Netzwerkdiagnosen kann der Inspector gegen `http://127.0.0.1:3000/mcp` verbunden werden.
 
-```json
-{
-  "type": "request",
-  "id": "test-3",
-  "method": "tool",
-  "params": {
-    "tool": "getPlannedTimetable",
-    "input": {
-      "evaNo": "8000105",
-      "date": "230401",
-      "hour": "14"
-    }
-  }
-}
+## Container
+
+```bash
+docker build -t db-timetable-mcp:test .
+docker run --rm -d --name db-timetable-mcp-test \
+  -p 127.0.0.1:3000:3000 \
+  -e DB_TIMETABLE_CLIENT_ID=test \
+  -e DB_TIMETABLE_CLIENT_SECRET=test \
+  db-timetable-mcp:test
+docker inspect --format '{{.State.Health.Status}}' db-timetable-mcp-test
+curl http://127.0.0.1:3000/health
+docker stop db-timetable-mcp-test
 ```
 
-### Ressource abrufen
+## Live-Smoke-Test
 
-```json
-{
-  "type": "request",
-  "id": "test-4",
-  "method": "resource",
-  "params": {
-    "uri": "db-api:timetable/current/8000105"
-  }
-}
-```
-
-## Debugging
-
-### Logging
-
-Der Server verwendet einen strukturierten Logger mit verschiedenen Log-Levels:
-
-- DEBUG: Detaillierte Debugging-Informationen
-- INFO: Allgemeine Informationen (Standard)
-- WARN: Warnungen
-- ERROR: Fehlermeldungen
-
-Das Log-Level kann in der .env-Datei eingestellt werden:
-
-```
-LOG_LEVEL=debug
-```
-
-### Fehlerbehandlung testen
-
-Um die Fehlerbehandlung zu testen, können Sie ungültige Parameter an die Tools übergeben:
-
-```json
-{
-  "type": "request",
-  "id": "test-error",
-  "method": "tool",
-  "params": {
-    "tool": "getCurrentTimetable",
-    "input": {
-      "evaNo": ""
-    }
-  }
-}
-```
-
-### Bekannte Fehlercodes
-
-- `VALIDATION_ERROR`: Ungültige Eingabeparameter
-- `API_ERROR`: Fehler bei der API-Anfrage
-- `INTERNAL_ERROR`: Interner Serverfehler
-- `AUTHENTICATION_ERROR`: Authentifizierungsfehler
-- `RESOURCE_NOT_FOUND`: Ressource nicht gefunden
-
-## Typische Teststationen
-
-Hier sind einige gültige EVA-Nummern für Tests:
-
-- 8000105: Frankfurt (Main) Hbf
-- 8000096: Berlin Hbf
-- 8000152: Hamburg Hbf
-- 8000244: München Hbf
-- 8000098: Köln Hbf
-
-## Fehlerbehebung
-
-### API-Zugangsdaten
-
-Stellen Sie sicher, dass in der .env-Datei gültige API-Zugangsdaten für die DB Timetable API konfiguriert sind:
-
-```
-DB_TIMETABLE_CLIENT_ID=your-client-id
-DB_TIMETABLE_CLIENT_SECRET=your-client-secret
-```
-
-### Netzwerkfehler
-
-Bei Netzwerkfehlern überprüfen Sie:
-
-1. Internetverbindung
-2. API-Erreichbarkeit
-3. Gültigkeit der API-Zugangsdaten
-
-### Server startet nicht
-
-1. Prüfen Sie, ob die erforderlichen Abhängigkeiten installiert sind: `npm install`
-2. Prüfen Sie, ob der TypeScript-Code kompiliert wurde: `npm run build`
-3. Überprüfen Sie die Log-Ausgabe auf Fehlermeldungen 
+Ein Live-Test verbraucht das persönliche API-Kontingent und läuft deshalb bewusst nicht in CI. Mit gültiger `.env` kann `getStationBoard` für EVA `8000105`, das aktuelle Datum im Format `YYMMDD` und eine Stunde `HH` über den Inspector geprüft werden.
