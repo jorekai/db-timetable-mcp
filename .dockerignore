@@ -1,0 +1,10 @@
+.git
+.github
+.env
+coverage
+dist
+docs
+node_modules
+npm-debug.log*
+*.md
+!README.md

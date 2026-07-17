@@ -1,0 +1,22 @@
+services:
+  db-timetable-mcp:
+    build: .
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      MCP_TRANSPORT: http
+      HOST: 0.0.0.0
+      PORT: 3000
+      MCP_ENDPOINT: /mcp
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      DB_TIMETABLE_CLIENT_ID: ${DB_TIMETABLE_CLIENT_ID:?required}
+      DB_TIMETABLE_CLIENT_SECRET: ${DB_TIMETABLE_CLIENT_SECRET:?required}
+    ports:
+      - "127.0.0.1:3000:3000"
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid
+    restart: unless-stopped

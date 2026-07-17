@@ -1,28 +1,34 @@
-FROM node:25-alpine
+FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build && npm prune --omit=dev
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm install
+FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
 
-# Copy source files
-COPY . .
+ENV NODE_ENV=production \
+    MCP_TRANSPORT=http \
+    HOST=0.0.0.0 \
+    PORT=3000 \
+    MCP_ENDPOINT=/mcp \
+    ALLOWED_HOSTS=localhost,127.0.0.1
 
-# Build TypeScript
-RUN npm run build
+WORKDIR /app
 
-# Remove dev dependencies after build to reduce image size
-RUN npm prune --production
+COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV TRANSPORT_TYPE=stdio
+USER node
 
-# Run in production mode
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+
 CMD ["node", "dist/index.js"]
-
-
