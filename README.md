@@ -1,21 +1,23 @@
+[English](README.md) | [Deutsch](README.de.md)
+
 # DB Timetable MCP Server
 
 [![CI](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml)
 [![Smithery](https://smithery.ai/badge/@jorekai/db-timetable-mcp)](https://smithery.ai/server/@jorekai/db-timetable-mcp)
 
-Ein produktionsreifer Model Context Protocol Server für die offizielle Deutsche-Bahn-Timetables-API. Er übersetzt das kompakte DB-XML in semantisches JSON und führt Sollfahrplan und Echtzeitänderungen zu einer verlässlichen Bahnhofstafel zusammen.
+A Model Context Protocol server for the official Deutsche Bahn Timetables API. It converts the compact DB XML into semantic JSON and merges the planned schedule with live changes into one station board.
 
-## Warum dieser Server?
+## What it guarantees
 
-- **Korrekte Gleise und Zeiten:** `effective` enthält den tatsächlich anzuzeigenden Wert; `planned` und `changed` erklären Abweichungen.
-- **LLM-freundlich:** Tools liefern `structuredContent`, beschreibende JSON-Schemas und ein abrufbares Datenmodell.
-- **MCP-konform:** Offizielles TypeScript-SDK, stdio für lokale Clients und stateless Streamable HTTP für Remote-Betrieb.
-- **Sicherer Betrieb:** Keine Logs auf `stdout`, lokale Bindung als Standard, Host-Allowlist, Timeouts, Non-root-Container und reproduzierbares Lockfile.
-- **Nachvollziehbar:** Unit-, Vertrags- und Transporttests, Coverage-Grenzen, CI, Dependency- und Secret-Checks.
+- **Correct platforms and times.** `effective` holds the value to display. `planned` and `changed` explain the deviation.
+- **Output built for models.** Tools return `structuredContent`, descriptive JSON schemas, and a data model available as an MCP resource.
+- **MCP conformance.** Official TypeScript SDK, stdio for local clients, stateless Streamable HTTP for remote operation.
+- **Safe defaults.** No logs on `stdout`, loopback binding unless you change it, host allowlist, timeouts, non-root container, reproducible lockfile.
+- **Verifiable behaviour.** Unit, contract, and transport tests, coverage thresholds, CI, dependency and secret checks.
 
-## Schnellstart
+## Quick start
 
-Voraussetzungen: Node.js 22 oder 24 LTS sowie ein abonniertes Timetables-Produkt im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables).
+Requirements: Node.js 22 or 24 LTS, and a subscribed Timetables product in the [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables).
 
 ```bash
 git clone https://github.com/jorekai/db-timetable-mcp.git
@@ -24,25 +26,25 @@ npm ci
 cp .env.example .env
 ```
 
-In `.env` eintragen:
+Fill in `.env`:
 
 ```dotenv
 DB_TIMETABLE_CLIENT_ID=deine-client-id
 DB_TIMETABLE_CLIENT_SECRET=dein-api-key
 ```
 
-Dann bauen und starten:
+Then build and start:
 
 ```bash
 npm run build
 npm start
 ```
 
-Im stdio-Modus wartet der Prozess auf einen MCP-Client. Statusmeldungen gehen ausschließlich nach `stderr`; `stdout` bleibt für JSON-RPC reserviert.
+In stdio mode the process waits for an MCP client. Status messages go to `stderr` only. `stdout` stays reserved for JSON-RPC.
 
 ## Claude Desktop
 
-Zuerst `npm ci && npm run build` ausführen. Anschließend einen absoluten Pfad in `claude_desktop_config.json` verwenden.
+Run `npm ci && npm run build` first, then point the configuration at an absolute path in `claude_desktop_config.json`.
 
 macOS/Linux:
 
@@ -70,25 +72,25 @@ Windows:
 }
 ```
 
-Die `.env`-Datei wird sowohl im aktuellen Arbeitsverzeichnis als auch neben dem Projektverzeichnis gesucht. Das funktioniert auch dann, wenn Claude Desktop den kompilierten Server aus einem anderen Arbeitsverzeichnis startet. Alternativ können die beiden Zugangsdaten im `env`-Objekt des MCP-Eintrags gesetzt werden.
+The `.env` file is looked up in the current working directory and next to the project directory, which covers the case where Claude Desktop starts the compiled server from somewhere else. You can also set the two credentials in the `env` object of the MCP entry instead.
 
-Nach einer Konfigurationsänderung Claude Desktop vollständig beenden und neu starten. Weitere Hinweise stehen unter [Fehlerbehebung](#fehlerbehebung).
+After a configuration change, quit Claude Desktop completely and start it again. More in [Troubleshooting](#troubleshooting).
 
 ## Tools
 
-| Tool | Zweck |
+| Tool | Purpose |
 |---|---|
-| `getStationBoard` | Empfohlen: verbindet Sollfahrplan und vollständige Änderungen zu einer Live-Bahnhofstafel |
-| `getPlannedTimetable` | Statischer Sollfahrplan für EVA-Nummer, Datum und Stunde |
-| `getCurrentTimetable` | Vollständiger Änderungsbestand (`fchg`); aus Kompatibilitätsgründen so benannt |
-| `getRecentChanges` | Änderungen der letzten zwei Minuten (`rchg`) für inkrementelle Aktualisierungen |
-| `findStations` | Stationssuche nach Name, EVA-Nummer oder DS100-Code |
+| `getStationBoard` | Recommended. Joins the planned schedule and the full change set into a live station board |
+| `getPlannedTimetable` | Static planned timetable for an EVA number, date, and hour |
+| `getCurrentTimetable` | The complete change set (`fchg`), named this way for compatibility |
+| `getRecentChanges` | Changes from the last two minutes (`rchg`) for incremental updates |
+| `findStations` | Station search by name, EVA number, or DS100 code |
 
-Alle Tools akzeptieren optional `includeRawXml: true`. Die vollständige Referenz mit Beispielen steht in [docs/api.md](docs/api.md).
+Every tool takes an optional `includeRawXml: true`. The full reference with examples is in [docs/api.md](docs/api.md).
 
-## Datenmodell
+## Data model
 
-Ein Ereignis für Ankunft oder Abfahrt sieht verkürzt so aus:
+An arrival or departure event, abbreviated:
 
 ```json
 {
@@ -101,20 +103,20 @@ Ein Ereignis für Ankunft oder Abfahrt sieht verkürzt so aus:
 }
 ```
 
-Für Antworten an Reisende immer `effective` verwenden. Das Modell kann dieselbe Erklärung über die Ressource `db-timetable://docs/data-model` abrufen. Details: [docs/data-model.md](docs/data-model.md).
+Use `effective` for anything a traveller sees. The model can retrieve the same explanation through the `db-timetable://docs/data-model` resource. Details in [docs/data-model.md](docs/data-model.md).
 
-## Streamable HTTP und Docker
+## Streamable HTTP and Docker
 
-Direkt lokal starten:
+Start it locally:
 
 ```bash
 MCP_TRANSPORT=http npm start
 ```
 
-- MCP-Endpunkt: `http://127.0.0.1:3000/mcp`
-- Healthcheck: `http://127.0.0.1:3000/health`
+- MCP endpoint: `http://127.0.0.1:3000/mcp`
+- Health check: `http://127.0.0.1:3000/health`
 
-Mit Docker Compose:
+With Docker Compose:
 
 ```bash
 docker compose up --build -d
@@ -122,65 +124,67 @@ docker compose ps
 curl http://127.0.0.1:3000/health
 ```
 
-Compose bindet den Port absichtlich nur an Loopback, startet als nicht privilegierter Benutzer und verwendet ein schreibgeschütztes Dateisystem. Für einen öffentlichen Endpunkt sind zusätzlich TLS und Authentifizierung über einen Reverse Proxy erforderlich. `ALLOWED_HOSTS` muss alle erlaubten Hostnamen enthalten.
+Compose binds the port to loopback on purpose, runs as an unprivileged user, and uses a read-only filesystem. A public endpoint additionally needs TLS and authentication behind a reverse proxy. `ALLOWED_HOSTS` must list every allowed hostname.
 
-## Konfiguration
+## Configuration
 
-| Variable | Standard | Beschreibung |
+| Variable | Default | Description |
 |---|---:|---|
-| `DB_TIMETABLE_CLIENT_ID` | – | DB-Client-ID, für API-Aufrufe erforderlich |
-| `DB_TIMETABLE_CLIENT_SECRET` | – | DB-API-Key, für API-Aufrufe erforderlich |
-| `DB_TIMETABLE_BASE_URL` | offizielle v1-URL | Alternative Basis-URL, primär für Tests |
-| `DB_TIMETABLE_TIMEOUT_MS` | `15000` | Request-Timeout zwischen 1000 und 120000 ms |
-| `MCP_TRANSPORT` | `stdio` | `stdio` oder `http` |
-| `HOST` | `127.0.0.1` | HTTP-Bindeadresse |
-| `PORT` | `3000` | HTTP-Port |
-| `MCP_ENDPOINT` | `/mcp` | Streamable-HTTP-Pfad |
-| `ALLOWED_HOSTS` | – | Kommaseparierte Host-Allowlist; bei `0.0.0.0`/`::` verpflichtend |
-| `DOTENV_CONFIG_PATH` | – | Expliziter absoluter Pfad zu einer Env-Datei |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` oder `error` |
+| `DB_TIMETABLE_CLIENT_ID` | – | DB client ID, required for API calls |
+| `DB_TIMETABLE_CLIENT_SECRET` | – | DB API key, required for API calls |
+| `DB_TIMETABLE_BASE_URL` | official v1 URL | Alternative base URL, mainly for tests |
+| `DB_TIMETABLE_TIMEOUT_MS` | `15000` | Request timeout between 1000 and 120000 ms |
+| `MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
+| `HOST` | `127.0.0.1` | HTTP bind address |
+| `PORT` | `3000` | HTTP port |
+| `MCP_ENDPOINT` | `/mcp` | Streamable HTTP path |
+| `ALLOWED_HOSTS` | – | Comma-separated host allowlist, required with `0.0.0.0`/`::` |
+| `DOTENV_CONFIG_PATH` | – | Explicit absolute path to an env file |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 
-Die alten Werte `TRANSPORT_TYPE=sse|httpStream` und `SSE_ENDPOINT` werden für eine sanfte Migration weiterhin auf Streamable HTTP abgebildet.
+The old values `TRANSPORT_TYPE=sse|httpStream` and `SSE_ENDPOINT` still map to Streamable HTTP, so migration does not break an existing client.
 
-## Entwicklung
+## Development
 
 ```bash
-npm run dev          # stdio mit Watch-Modus
-npm run dev:http     # Streamable HTTP mit Watch-Modus
-npm run check        # Lint, Typen, Tests und Build
+npm run dev          # stdio with watch mode
+npm run dev:http     # Streamable HTTP with watch mode
+npm run check        # lint, types, tests, and build
 npm run test:coverage
 ```
 
-Weitere Dokumente:
+Further reading:
 
-- [API-Referenz](docs/api.md)
-- [Datenmodell](docs/data-model.md)
-- [Architektur](docs/architecture.md)
-- [Teststrategie](TESTING.md)
-- [Beitragen](CONTRIBUTING.md)
-- [Sicherheitsrichtlinie](SECURITY.md)
-- [Änderungshistorie](CHANGELOG.md)
+- [API reference](docs/api.md)
+- [Data model](docs/data-model.md)
+- [Architecture](docs/architecture.md)
+- [Testing strategy](TESTING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
-## Fehlerbehebung
+The documents under `docs/` are currently written in German.
+
+## Troubleshooting
 
 **`Expected "," or "]" after array element` in Claude Desktop**
 
-Auf Version 2 aktualisieren und neu bauen. Frühere Versionen schrieben Logzeilen auf den stdio-Protokollkanal; Version 2 nutzt dafür ausschließlich `stderr`.
+Update to version 2 and rebuild. Earlier versions wrote log lines to the stdio protocol channel. Version 2 uses `stderr` for that.
 
-**`DB-API-Zugangsdaten fehlen` trotz `.env`**
+**`DB-API-Zugangsdaten fehlen` even though `.env` exists** (the message reads "DB API credentials are missing")
 
-Die Datei muss im Repository-Root neben `package.json` liegen. Bei einem anderen Ort `DOTENV_CONFIG_PATH` absolut setzen. Keine Anführungszeichen oder zusätzlichen Leerzeichen um die Werte verwenden.
+The file must sit in the repository root next to `package.json`. If it lives somewhere else, set `DOTENV_CONFIG_PATH` to an absolute path. Do not wrap the values in quotes or leave trailing spaces around them.
 
-**401/403 von der DB API**
+**401/403 from the DB API**
 
-Prüfen, ob Client-ID und API-Key zusammengehören und die Anwendung das Produkt Timetables abonniert hat.
+Check that the client ID and the API key belong together, and that the application has subscribed to the Timetables product.
 
-**Falsches Gleis**
+**Wrong platform**
 
-`getStationBoard` verwenden und `effective.platform` lesen. `planned.platform` ist ausdrücklich das Sollgleis; `changed.platform` ist nur gesetzt, wenn die DB eine Änderung gemeldet hat.
+Use `getStationBoard` and read `effective.platform`. `planned.platform` is the scheduled platform by definition, and `changed.platform` is present only when DB has reported a change.
 
-## Datenquelle und Lizenz
+## Data source and license
 
-Die Fahrplandaten stammen von der Deutschen Bahn und werden über die [Timetables API 1.0.274](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160) bereitgestellt. Laut DB API Marketplace stehen die Daten unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); die Namensnennung der Deutschen Bahn ist bei Nutzung der Daten erforderlich. Der Marketplace nennt derzeit ein Limit von 60 Aufrufen pro Minute.
+The timetable data comes from Deutsche Bahn and is served through the [Timetables API 1.0.274](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160). According to the DB API Marketplace the data is under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), so attribution to Deutsche Bahn is required when you use it. The Marketplace currently states a limit of 60 calls per minute.
 
-Der MCP-Server selbst steht unter der [MIT-Lizenz](LICENSE.md).
+The MCP server itself is under the [MIT license](LICENSE.md).
