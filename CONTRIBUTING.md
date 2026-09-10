@@ -1,6 +1,6 @@
-# Beitragen
+# Contributing
 
-## Entwicklungsumgebung
+## Development environment
 
 ```bash
 git clone https://github.com/jorekai/db-timetable-mcp.git
@@ -9,14 +9,14 @@ npm ci
 npm run check
 ```
 
-Node.js 22 und 24 LTS werden in CI geprüft.
+CI checks Node.js 22 and 24 LTS.
 
-## Änderungen
+## Changes
 
-1. Für Fehler zuerst einen reproduzierenden Test hinzufügen.
-2. Öffentliche Tool- und Ressourcenbeschreibungen als Teil des API-Vertrags behandeln.
-3. Keine DB-Zugangsdaten oder Live-Antworten mit personenbezogenen Inhalten committen.
-4. `npm run check` und `npm run test:coverage` vor einem Pull Request ausführen.
-5. Dokumentation und `CHANGELOG.md` bei sichtbaren Änderungen aktualisieren.
+1. For a bug, add a reproducing test first.
+2. Treat public tool and resource descriptions as part of the API contract.
+3. Never commit DB credentials or live responses containing personal data.
+4. Run `npm run check` and `npm run test:coverage` before a pull request.
+5. Update the documentation and `CHANGELOG.md` for visible changes.
 
-Commits sollten klein, nachvollziehbar und als menschlich lesbare Handlung formuliert sein, beispielsweise `Fix stdio logging corrupting MCP messages`.
+Commits should be small, traceable, and phrased as a human-readable action, for example `Fix stdio logging corrupting MCP messages`.

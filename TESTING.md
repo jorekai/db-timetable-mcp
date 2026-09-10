@@ -1,8 +1,8 @@
-# Teststrategie
+# Testing strategy
 
-Die Testpyramide besteht aus schnellen Parser- und Konfigurationstests, MCP-Vertragstests über In-Memory-Transporte und einem echten Streamable-HTTP-Client gegen einen temporären lokalen Server. Externe DB-Aufrufe werden in automatischen Tests nicht ausgeführt.
+The test pyramid consists of fast parser and configuration tests, MCP contract tests over in-memory transports, and a real Streamable HTTP client against a temporary local server. External DB calls do not run in automated tests.
 
-## Komplette Prüfung
+## Full check
 
 ```bash
 npm ci
@@ -11,28 +11,28 @@ npm run test:coverage
 npm audit --audit-level=high
 ```
 
-`npm run check` führt Biome, TypeScript, alle Vitest-Suites und den Produktionsbuild aus. Die Coverage-Grenzen liegen bei 85 % für Zeilen, Funktionen und Statements sowie 80 % für Branches.
+`npm run check` runs Biome, TypeScript, all Vitest suites, and the production build. The coverage thresholds are 85% for lines, functions, and statements, and 80% for branches.
 
-## Testbereiche
+## Test areas
 
-| Suite | Abdeckung |
+| Suite | Coverage |
 |---|---|
-| `timetableParser.test.ts` | XML-Validierung, semantische Felder, Zeitstempel, Gleise, Meldungen und Merge-Logik |
-| `api.test.ts` | Auth-Header, URL-Kodierung, Fehlerabbildung, Roh-XML-Option und Bahnhofstafel |
-| `server.test.ts` | MCP-Toolschemas, strukturierte Ausgaben, Eingabevalidierung und Ressourcen |
-| `transport.test.ts` | Healthcheck, stateless Streamable HTTP und Ablehnung des alten SSE-GET-Flows |
-| `stdio.e2e.test.ts` | Echter MCP-Handshake mit einem gestarteten stdio-Unterprozess und stderr-Logging |
-| `config.test.ts` | `.env`-Auflösung, sichere Netzwerkstandards und Legacy-Migration |
-| `utils/*` | Fehlerklassen und stderr-only Logging |
+| `timetableParser.test.ts` | XML validation, semantic fields, timestamps, platforms, messages, and the merge logic |
+| `api.test.ts` | Auth headers, URL encoding, error mapping, the raw XML option, and the station board |
+| `server.test.ts` | MCP tool schemas, structured output, input validation, and resources |
+| `transport.test.ts` | Health check, stateless Streamable HTTP, and rejection of the old SSE GET flow |
+| `stdio.e2e.test.ts` | A real MCP handshake with a started stdio subprocess and stderr logging |
+| `config.test.ts` | `.env` resolution, safe network defaults, and legacy migration |
+| `utils/*` | Error classes and stderr-only logging |
 
-## Manueller MCP-Test
+## Manual MCP test
 
 ```bash
 npm run build
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-Im Inspector zuerst `findStations` mit `Frankfurt` und danach `getStationBoard` mit der gefundenen EVA-Nummer verwenden.
+In the inspector, call `findStations` with `Frankfurt` first, then `getStationBoard` with the EVA number you found.
 
 ## Streamable HTTP
 
@@ -41,7 +41,7 @@ MCP_TRANSPORT=http npm start
 curl http://127.0.0.1:3000/health
 ```
 
-Der vollständige MCP-Vertrag wird bereits automatisiert mit dem offiziellen TypeScript-Client getestet. Für Netzwerkdiagnosen kann der Inspector gegen `http://127.0.0.1:3000/mcp` verbunden werden.
+The full MCP contract is already tested automatically with the official TypeScript client. For network diagnosis you can connect the inspector to `http://127.0.0.1:3000/mcp`.
 
 ## Container
 
@@ -57,6 +57,6 @@ curl http://127.0.0.1:3000/health
 docker stop db-timetable-mcp-test
 ```
 
-## Live-Smoke-Test
+## Live smoke test
 
-Ein Live-Test verbraucht das persönliche API-Kontingent und läuft deshalb bewusst nicht in CI. Mit gültiger `.env` kann `getStationBoard` für EVA `8000105`, das aktuelle Datum im Format `YYMMDD` und eine Stunde `HH` über den Inspector geprüft werden.
+A live test consumes your personal API quota and therefore does not run in CI on purpose. With a valid `.env` you can check `getStationBoard` for EVA `8000105`, the current date in `YYMMDD` format, and an hour `HH` through the inspector.
