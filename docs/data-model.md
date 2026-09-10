@@ -1,31 +1,31 @@
-# Semantisches Datenmodell
+# Semantic data model
 
-Die DB Timetables API verwendet kompakte XML-Attribute wie `pt`, `ct`, `pp` und `cp`. Diese sind für Maschinen effizient, für Sprachmodelle aber mehrdeutig. Der Server übersetzt sie ohne Bedeutungsverlust.
+The DB Timetables API uses compact XML attributes such as `pt`, `ct`, `pp`, and `cp`. They are efficient for machines and ambiguous for language models. The server translates them without losing meaning.
 
-## Ereigniswerte
+## Event values
 
-| JSON-Feld | DB-Feld | Bedeutung |
+| JSON field | DB field | Meaning |
 |---|---|---|
-| `planned.time` | `pt` | Sollzeit |
-| `changed.time` | `ct` | geänderte/erwartete Zeit |
-| `planned.platform` | `pp` | Sollgleis |
-| `changed.platform` | `cp` | geändertes Gleis |
-| `planned.path` | `ppth` | geplanter Fahrtweg |
-| `changed.path` | `cpth` | geänderter Fahrtweg |
-| `planned.status` | `ps` | geplanter Status |
-| `changed.status` | `cs` | geänderter Status, insbesondere Ausfall |
+| `planned.time` | `pt` | scheduled time |
+| `changed.time` | `ct` | changed or expected time |
+| `planned.platform` | `pp` | scheduled platform |
+| `changed.platform` | `cp` | changed platform |
+| `planned.path` | `ppth` | planned route |
+| `changed.path` | `cpth` | changed route |
+| `planned.status` | `ps` | scheduled status |
+| `changed.status` | `cs` | changed status, in particular a cancellation |
 
-`effective` wird feldweise zusammengesetzt: Ein vorhandener Änderungswert gewinnt, andernfalls bleibt der Sollwert bestehen. So führt eine reine Zeitänderung nicht dazu, dass das bekannte Sollgleis verloren geht.
+`effective` is assembled field by field: a present change value wins, otherwise the scheduled value stands. A change to the time alone therefore does not discard the scheduled platform that is still known.
 
-Zusätzlich berechnet der Server:
+The server additionally computes:
 
-- `delayMinutes`: Differenz zwischen `changed.time` und `planned.time`.
-- `platformChanged`: ob `cp` und `pp` verschieden sind.
-- `isCancelled`: ob der wirksame Status `cancelled` ist.
+- `delayMinutes`: the difference between `changed.time` and `planned.time`.
+- `platformChanged`: whether `cp` and `pp` differ.
+- `isCancelled`: whether the effective status is `cancelled`.
 
-## Zeitstempel
+## Timestamps
 
-DB-Zeitstempel haben das Format `YYMMDDHHmm`, beispielsweise `2607171027`. Der Server liefert:
+DB timestamps use the format `YYMMDDHHmm`, for example `2607171027`. The server returns:
 
 ```json
 {
@@ -35,14 +35,14 @@ DB-Zeitstempel haben das Format `YYMMDDHHmm`, beispielsweise `2607171027`. Der S
 }
 ```
 
-Es wird bewusst kein UTC-Offset erfunden. Die IANA-Zeitzone macht Sommer- und Winterzeit explizit, während `raw` eine verlustfreie Prüfung gegen die Quelle erlaubt.
+No UTC offset is invented. The IANA timezone makes daylight saving explicit, and `raw` allows a lossless check against the source.
 
-## Zusammenführen einer Bahnhofstafel
+## Merging a station board
 
-`getStationBoard` lädt `/plan` und `/fchg` parallel. Stops werden über die eindeutige Stop-ID verbunden. Solldaten stellen den Grundzustand, Änderungen ergänzen nur tatsächlich gemeldete Felder. Ungeplante, neu hinzugefügte Stops bleiben erhalten.
+`getStationBoard` loads `/plan` and `/fchg` in parallel. Stops are joined on the unique stop ID. Scheduled data provides the base state, and changes only add fields that were actually reported. Unplanned stops that were added remain in the result.
 
-## Meldungstypen
+## Message types
 
-Codes werden unter anderem zu `him`, `quality_change`, `free_text`, `cause_of_delay`, `ibis`, `disruption` und `connection` übersetzt. Unbekannte zukünftige Codes bleiben als `unknown` erkennbar, statt den gesamten API-Aufruf scheitern zu lassen.
+Codes are translated to `him`, `quality_change`, `free_text`, `cause_of_delay`, `ibis`, `disruption`, and `connection`, among others. Unknown future codes stay recognizable as `unknown` instead of failing the whole API call.
 
-Die maßgebliche Feldbeschreibung ist die [offizielle Timetables-OpenAPI-Spezifikation](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160).
+The authoritative field description is the [official Timetables OpenAPI specification](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160).

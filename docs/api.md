@@ -1,6 +1,6 @@
-# MCP API-Referenz
+# MCP API reference
 
-Alle Tools sind read-only und idempotent. Erfolgreiche Aufrufe liefern denselben Umschlag:
+Every tool is read-only and idempotent. A successful call returns the same envelope:
 
 ```json
 {
@@ -12,18 +12,18 @@ Alle Tools sind read-only und idempotent. Erfolgreiche Aufrufe liefern denselben
 }
 ```
 
-`retrievedAt` ist UTC. DB-Fahrplanzeiten bleiben als lokale Zeit in `Europe/Berlin` erhalten und enthalten zusätzlich den unveränderten DB-Wert unter `raw`.
+`retrievedAt` is UTC. DB timetable times stay in local time in `Europe/Berlin` and additionally carry the unchanged DB value under `raw`.
 
 ## getStationBoard
 
-Die bevorzugte Schnittstelle für Ankünfte und Abfahrten. Der Server ruft den Sollfahrplan der Stunde und den vollständigen Änderungsbestand parallel ab und verbindet Stops über ihre DB-Stop-ID.
+The preferred interface for arrivals and departures. The server fetches the planned timetable for the hour and the full change set in parallel, then joins the stops on their DB stop ID.
 
-| Parameter | Typ | Pflicht | Beschreibung |
+| Parameter | Type | Required | Description |
 |---|---|---|---|
-| `evaNo` | string | ja | Genau sieben Ziffern |
-| `date` | string | ja | Betriebstag `YYMMDD` |
-| `hour` | string | ja | Stunde `00` bis `23` |
-| `includeRawXml` | boolean | nein | Soll- und Änderungs-XML zusätzlich beifügen |
+| `evaNo` | string | yes | Exactly seven digits |
+| `date` | string | yes | Operating day `YYMMDD` |
+| `hour` | string | yes | Hour `00` to `23` |
+| `includeRawXml` | boolean | no | Also attach the planned and change XML |
 
 ```json
 {
@@ -35,46 +35,46 @@ Die bevorzugte Schnittstelle für Ankünfte und Abfahrten. Der Server ruft den S
 
 ## getPlannedTimetable
 
-Liefert ausschließlich den statischen Sollfahrplan aus `/plan/{evaNo}/{date}/{hour}`. Die Zeitfenster überlappen laut DB geringfügig; bei mehreren Stunden sollten Stops anhand ihrer `id` dedupliziert werden.
+Returns the static planned timetable from `/plan/{evaNo}/{date}/{hour}` and nothing else. According to DB the time windows overlap slightly, so across several hours you should deduplicate stops on their `id`.
 
-Parameter: `evaNo`, `date`, `hour`, optional `includeRawXml`.
+Parameters: `evaNo`, `date`, `hour`, optional `includeRawXml`.
 
 ## getCurrentTimetable
 
-Liefert den vollständigen bekannten Änderungsbestand aus `/fchg/{evaNo}`. Der historische Toolname bleibt aus Kompatibilitätsgründen erhalten. Ohne Sollfahrplan können nicht geänderte Felder fehlen; für eine fertige Bahnhofstafel daher `getStationBoard` verwenden.
+Returns the full known change set from `/fchg/{evaNo}`. The historical tool name is kept for compatibility. Without the planned timetable, unchanged fields can be missing, so use `getStationBoard` when you need a finished station board.
 
-Parameter: `evaNo`, optional `includeRawXml`.
+Parameters: `evaNo`, optional `includeRawXml`.
 
 ## getRecentChanges
 
-Liefert das Delta aus `/rchg/{evaNo}`. Die DB beschreibt dieses als Änderungen, die innerhalb der letzten zwei Minuten bekannt wurden. Ein Client sollte zunächst vollständige Daten laden und danach höchstens im zulässigen API-Kontingent pollen.
+Returns the delta from `/rchg/{evaNo}`. DB describes this as changes that became known within the last two minutes. A client should load the full data first and then poll no faster than the API quota allows.
 
-Parameter: `evaNo`, optional `includeRawXml`.
+Parameters: `evaNo`, optional `includeRawXml`.
 
 ## findStations
 
-Sucht über `/station/{pattern}` nach Name, EVA-Nummer oder DS100-Code.
+Searches `/station/{pattern}` by name, EVA number, or DS100 code.
 
-| Parameter | Typ | Pflicht | Beschreibung |
+| Parameter | Type | Required | Description |
 |---|---|---|---|
-| `pattern` | string | ja | 1 bis 100 Zeichen; wird sicher als URL-Segment kodiert |
-| `includeRawXml` | boolean | nein | DB-XML zusätzlich beifügen |
+| `pattern` | string | yes | 1 to 100 characters, encoded safely as a URL segment |
+| `includeRawXml` | boolean | no | Also attach the DB XML |
 
-Die Antwort enthält `evaNo`, `ds100`, `name`, `platforms` und `metaStations`.
+The response contains `evaNo`, `ds100`, `name`, `platforms`, and `metaStations`.
 
-## Ressourcen
+## Resources
 
-| URI | MIME-Type | Inhalt |
+| URI | MIME type | Content |
 |---|---|---|
-| `db-timetable://docs/data-model` | `application/json` | Semantik der normalisierten Felder |
-| `db-api:timetable/current/{evaNo}` | `application/json` | Vollständige Änderungen |
-| `db-api:timetable/changes/{evaNo}` | `application/json` | Jüngste Änderungen |
-| `db-api:timetable/planned/{evaNo}/{date}/{hour}` | `application/json` | Sollfahrplan |
-| `db-api:station/{pattern}` | `application/json` | Stationssuche |
+| `db-timetable://docs/data-model` | `application/json` | Semantics of the normalized fields |
+| `db-api:timetable/current/{evaNo}` | `application/json` | Full changes |
+| `db-api:timetable/changes/{evaNo}` | `application/json` | Recent changes |
+| `db-api:timetable/planned/{evaNo}/{date}/{hour}` | `application/json` | Planned timetable |
+| `db-api:station/{pattern}` | `application/json` | Station search |
 
-## Fehler
+## Errors
 
-Toolfehler werden MCP-konform mit `isError: true` und einer stabilen Struktur geliefert:
+Tool errors are returned MCP-conformantly with `isError: true` and a stable structure:
 
 ```json
 {
@@ -85,4 +85,4 @@ Toolfehler werden MCP-konform mit `isError: true` und einer stabilen Struktur ge
 }
 ```
 
-Mögliche fachliche Codes: `AUTHENTICATION_ERROR`, `RESOURCE_NOT_FOUND`, `API_TIMEOUT`, `API_RATE_LIMIT`, `API_UNAVAILABLE` und `API_ERROR`. Ungültige Eingaben weist das MCP-Schema bereits vor dem API-Aufruf zurück.
+The domain codes are `AUTHENTICATION_ERROR`, `RESOURCE_NOT_FOUND`, `API_TIMEOUT`, `API_RATE_LIMIT`, `API_UNAVAILABLE`, and `API_ERROR`. The MCP schema rejects invalid input before the API call is made.

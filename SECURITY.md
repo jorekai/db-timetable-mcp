@@ -1,20 +1,20 @@
-# Sicherheitsrichtlinie
+# Security policy
 
-## Unterstützte Versionen
+## Supported versions
 
-Sicherheitskorrekturen werden für die aktuelle Hauptversion bereitgestellt.
+Security fixes are provided for the current major version.
 
-## Schwachstellen melden
+## Reporting a vulnerability
 
-Bitte keine ausnutzbaren Details in einem öffentlichen Issue veröffentlichen. Verwende stattdessen GitHub Private Vulnerability Reporting unter **Security → Report a vulnerability** im Repository. Gib betroffene Version, Auswirkung, Reproduktionsschritte und eine mögliche Abhilfe an.
+Please do not publish exploitable details in a public issue. Use GitHub Private Vulnerability Reporting under **Security → Report a vulnerability** in the repository instead. Include the affected version, the impact, reproduction steps, and a possible mitigation.
 
-## Betriebsgrenzen
+## Operating limits
 
-- Zugangsdaten gehören in Umgebungsvariablen oder eine nicht versionierte `.env`-Datei.
-- Streamable HTTP bindet standardmäßig an Loopback. Öffentliche Bereitstellungen benötigen TLS und Authentifizierung vor dem Server.
-- Bei `HOST=0.0.0.0` oder `HOST=::` ist `ALLOWED_HOSTS` verpflichtend.
-- Der Server ist read-only gegenüber der DB API, kann aber bei ungeschütztem Remote-Zugriff das persönliche API-Kontingent verbrauchen.
+- Credentials belong in environment variables or an unversioned `.env` file.
+- Streamable HTTP binds to loopback by default. Public deployments need TLS and authentication in front of the server.
+- With `HOST=0.0.0.0` or `HOST=::`, `ALLOWED_HOSTS` is required.
+- The server is read-only against the DB API, but unprotected remote access can consume your personal API quota.
 
-## Prüfung
+## Checks
 
-CI führt Lint, Typprüfung, Tests, reproduzierbaren Build, Coverage-Grenzen, `npm audit` und einen Containerbuild aus. Dependabot überwacht npm-, Docker- und GitHub-Actions-Abhängigkeiten.
+CI runs lint, type checking, tests, a reproducible build, coverage thresholds, `npm audit`, and a container build. Dependabot tracks npm, Docker, and GitHub Actions dependencies.
