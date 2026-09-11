@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--font-sans: var(--font-geist-sans);
+	--font-mono: var(--font-geist-mono);
+	--font-heading: var(--font-geist-sans);
+
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	/* Functional colours. Only deviations get colour; on time stays neutral. */
+	--color-status-cancel: var(--status-cancel);
+	--color-status-cancel-soft: var(--status-cancel-soft);
+	--color-status-delay: var(--status-delay);
+	--color-status-delay-soft: var(--status-delay-soft);
+	--color-status-platform: var(--status-platform);
+	--color-status-platform-soft: var(--status-platform-soft);
+
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+	/* Warm paper, not pure white. Neutrals are tinted toward the ink hue. */
+	--background: oklch(0.985 0.004 85);
+	--foreground: oklch(0.205 0.012 65);
+	--card: oklch(1 0.002 85);
+	--card-foreground: oklch(0.205 0.012 65);
+	--popover: oklch(0.996 0.003 85);
+	--popover-foreground: oklch(0.205 0.012 65);
+	--primary: oklch(0.235 0.018 60);
+	--primary-foreground: oklch(0.985 0.003 85);
+	--secondary: oklch(0.955 0.006 82);
+	--secondary-foreground: oklch(0.28 0.014 65);
+	--muted: oklch(0.955 0.006 82);
+	--muted-foreground: oklch(0.495 0.014 70);
+	--accent: oklch(0.945 0.008 82);
+	--accent-foreground: oklch(0.235 0.018 60);
+	--destructive: oklch(0.545 0.205 27);
+	--border: oklch(0.898 0.007 78);
+	--input: oklch(0.898 0.007 78);
+	--ring: oklch(0.52 0.04 65);
+
+	--status-cancel: oklch(0.515 0.2 27);
+	--status-cancel-soft: oklch(0.955 0.028 27);
+	--status-delay: oklch(0.55 0.13 62);
+	--status-delay-soft: oklch(0.962 0.05 82);
+	--status-platform: oklch(0.49 0.13 255);
+	--status-platform-soft: oklch(0.956 0.03 250);
+
+	--radius: 0.625rem;
+}
+
+/* Dunkles Schema folgt der Systemeinstellung, ohne Umschalter. Die Tokens
+   sind dieselben Rollen wie im hellen Schema, nur für dunklen Grund. */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--background: oklch(0.185 0.008 70);
+		--foreground: oklch(0.955 0.005 85);
+		--card: oklch(0.225 0.009 70);
+		--card-foreground: oklch(0.955 0.005 85);
+		--popover: oklch(0.235 0.009 70);
+		--popover-foreground: oklch(0.955 0.005 85);
+		--primary: oklch(0.94 0.006 85);
+		--primary-foreground: oklch(0.225 0.009 70);
+		--secondary: oklch(0.28 0.01 70);
+		--secondary-foreground: oklch(0.955 0.005 85);
+		--muted: oklch(0.275 0.01 70);
+		--muted-foreground: oklch(0.735 0.012 80);
+		--accent: oklch(0.3 0.011 70);
+		--accent-foreground: oklch(0.96 0.005 85);
+		--destructive: oklch(0.7 0.19 25);
+		--border: oklch(1 0 0 / 12%);
+		--input: oklch(1 0 0 / 16%);
+		--ring: oklch(0.72 0.03 80);
+
+		--status-cancel: oklch(0.78 0.16 25);
+		--status-cancel-soft: oklch(0.32 0.07 25);
+		--status-delay: oklch(0.82 0.13 78);
+		--status-delay-soft: oklch(0.33 0.06 78);
+		--status-platform: oklch(0.78 0.11 250);
+		--status-platform-soft: oklch(0.33 0.06 250);
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	html {
+		@apply font-sans;
+		scroll-behavior: smooth;
+	}
+	body {
+		@apply bg-background text-foreground;
+		text-rendering: optimizeLegibility;
+	}
+	::selection {
+		background: oklch(0.85 0.06 80);
+		color: var(--foreground);
+	}
+	:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+		border-radius: 2px;
+	}
+	code {
+		font-family: var(--font-geist-mono), ui-monospace, monospace;
+		font-size: 0.9em;
+	}
+}
+
+@utility tnum {
+	font-variant-numeric: tabular-nums;
+}
+
+/* The board is read, not watched. Motion is feedback, never decoration. */
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}

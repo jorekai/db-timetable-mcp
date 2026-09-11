@@ -11,8 +11,13 @@
 			"**",
 			"!!dist",
 			"!!node_modules",
+			"!!**/node_modules",
 			"!!coverage",
-			"!!**/.wrangler"
+			"!!**/.wrangler",
+			"!!**/.next",
+			"!!**/.vercel",
+			"!!**/*.tsbuildinfo",
+			"!!web/next-env.d.ts"
 		]
 	},
 	"formatter": {
@@ -25,9 +30,24 @@
 			"preset": "recommended"
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["web/app/globals.css"],
+			"linter": {
+				"rules": {
+					"complexity": { "noImportantStyles": "off" }
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
 		}
 	}
 }
