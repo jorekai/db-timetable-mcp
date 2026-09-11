@@ -65,10 +65,10 @@
 		"@cloudflare/workers-types": "^5.20260911.1",
 		"@types/express": "^5.0.6",
 		"@types/node": "^24.10.0",
-		"@vitest/coverage-v8": "^4.1.10",
+		"@vitest/coverage-v8": "^4.1.11",
 		"tsx": "^4.21.0",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10",
+		"vitest": "^4.1.11",
 		"wrangler": "^4.131.0"
 	}
 }
