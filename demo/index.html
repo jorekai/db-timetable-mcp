@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DB Timetables MCP — browser demo</title>
+<meta name="description" content="A real MCP client in the browser, talking Streamable HTTP to a Cloudflare Worker that runs the DB Timetables MCP server.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="site">
+	<h1>DB Timetables MCP <span class="tag">browser demo</span></h1>
+	<p class="lede">
+		This page is a real <abbr title="Model Context Protocol">MCP</abbr> client running in your browser.
+		It speaks raw JSON-RPC over Streamable HTTP to a Cloudflare Worker that runs the
+		<code>db-timetable-mcp</code> server and holds the API credentials.
+		No REST wrapper in between — open the protocol panel to see the messages.
+	</p>
+</header>
+
+<main>
+	<section aria-labelledby="try-h">
+		<h2 id="try-h">Try it</h2>
+
+		<div id="endpoint-note" class="warn" hidden>
+			<strong>No worker endpoint is configured.</strong>
+			Set <code>DEFAULT_ENDPOINT</code> in <code>demo/app.js</code> to your deployed worker,
+			or open this page with <code>?endpoint=https://…/mcp</code>. See “Run your own”.
+		</div>
+
+		<form id="search-form" autocomplete="off">
+			<label for="q">Station</label>
+			<div class="row">
+				<input id="q" name="q" type="search" placeholder="e.g. Frankfurt Hbf, Köln, 8000105" required>
+				<button type="submit" id="search-btn">Search</button>
+			</div>
+		</form>
+
+		<div id="stations" class="stations" hidden></div>
+
+		<p id="status" class="status" role="status"></p>
+
+		<div id="board" class="board" hidden>
+			<div class="board-head">
+				<h3 id="board-title">Station board</h3>
+				<p id="board-meta" class="meta"></p>
+			</div>
+			<ul id="board-list" class="departures"></ul>
+			<p id="board-empty" class="muted" hidden>No departures in the loaded window.</p>
+		</div>
+	</section>
+
+	<section aria-labelledby="protocol-h">
+		<h2 id="protocol-h">Protocol log</h2>
+		<p class="muted">
+			Every message this page exchanged with the worker, verbatim. This is the actual
+			JSON-RPC traffic: <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>.
+		</p>
+		<p>
+			<button type="button" id="protocol-toggle" aria-expanded="false">Show messages</button>
+			<span id="protocol-count" class="muted"></span>
+		</p>
+		<div id="protocol" class="protocol" hidden></div>
+	</section>
+
+	<section aria-labelledby="about-h">
+		<h2 id="about-h">What this is</h2>
+		<p>
+			<code>db-timetable-mcp</code> is an MCP server for the official Deutsche Bahn Timetables API.
+			It exposes five tools — <code>getStationBoard</code>, <code>findStations</code>,
+			<code>getPlannedTimetable</code>, <code>getCurrentTimetable</code>, <code>getRecentChanges</code>.
+			The board above is a single <code>getStationBoard</code> call: the worker merges the
+			planned timetable with the realtime changes and marks the effective values.
+			This page is a demonstration of that server running in an edge runtime, driven by a
+			browser client instead of an AI agent.
+		</p>
+	</section>
+
+	<section aria-labelledby="limits-h">
+		<h2 id="limits-h">Limits</h2>
+		<p>
+			The operator's DB API quota is personal and small. The worker caches upstream calls and
+			degrades to cached data instead of failing, so that a popular page does not burn the quota.
+		</p>
+		<table class="limits">
+			<caption>Measured/configured values</caption>
+			<thead>
+				<tr><th scope="col">Resource</th><th scope="col">Limit</th><th scope="col">What happens at the limit</th></tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>Cache: live data (<code>getCurrentTimetable</code>, <code>getRecentChanges</code>)</td>
+					<td>30 s fresh</td>
+					<td>Upstream is called once per 30 s per station board, no matter how many visitors.</td>
+				</tr>
+				<tr>
+					<td>Cache: <code>getPlannedTimetable</code></td>
+					<td>1 h fresh</td>
+					<td>Timetables for a given station/date/hour are static per hour.</td>
+				</tr>
+				<tr>
+					<td>Cache: <code>findStations</code></td>
+					<td>24 h fresh</td>
+					<td>Station data effectively never changes.</td>
+				</tr>
+				<tr>
+					<td>Stale cache window</td>
+					<td>6 h</td>
+					<td>If the upstream quota is exhausted or the API is down, the last snapshot is served and marked stale.</td>
+				</tr>
+				<tr>
+					<td>Rate limit per IP</td>
+					<td>20 / min, 200 / h</td>
+					<td>HTTP 429 with <code>Retry-After</code>. Best effort, see note below.</td>
+				</tr>
+				<tr>
+					<td>Circuit breaker</td>
+					<td>30 s open</td>
+					<td>After one upstream <code>429</code>, no further upstream calls are attempted for 30 s.</td>
+				</tr>
+				<tr>
+					<td>DB Timetables API quota</td>
+					<td>60 requests / min (per marketplace terms)</td>
+					<td>Shared by every visitor. The cache is what keeps this from being hit.</td>
+				</tr>
+				<tr>
+					<td>Cloudflare Workers Free</td>
+					<td>100,000 requests / day</td>
+					<td>Beyond that the worker stops serving until the daily counter resets. No automatic billing on Free.</td>
+				</tr>
+				<tr>
+					<td>GitHub Pages Free</td>
+					<td>1 GB repo, 100 GB bandwidth / month, 10 builds / hour</td>
+					<td>Soft limits enforced by GitHub; the site may be blocked until the next period.</td>
+				</tr>
+			</tbody>
+		</table>
+		<p class="muted">
+			<strong>Honest note on rate limiting.</strong> Cloudflare's Free plan has no rate-limiting
+			product, so this is a best-effort counter in the memory of a single worker isolate. Each
+			isolate keeps its own counters and loses them on redeploy or eviction, so the effective
+			limit is roughly “20 per minute × the number of active isolates”. It blunts accidents and
+			abuse, it does not stop a determined attacker. The cache plus the circuit breaker are what
+			actually protect the upstream quota. A Durable Object would be the correct fix and is
+			deliberately out of scope for this demo.
+		</p>
+	</section>
+
+	<section aria-labelledby="data-h">
+		<h2 id="data-h">Data source and attribution</h2>
+		<p>
+			Timetable data is provided by <strong>Deutsche Bahn</strong> via the
+			<a href="https://developers.deutschebahn.com/" rel="noopener noreferrer">DB API Marketplace</a>
+			and is licensed under the
+			<a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener noreferrer">Creative Commons Attribution 4.0 International licence (CC BY 4.0)</a>.
+		</p>
+		<p class="attribution">
+			Contains timetable data of Deutsche Bahn AG, licensed under CC BY 4.0.
+			Source: DB API Marketplace, Timetables API.
+		</p>
+		<p class="muted">
+			Attribution is a condition of the licence, not a courtesy. If you reuse this data, keep it.
+			This page is not affiliated with or endorsed by Deutsche Bahn AG.
+		</p>
+	</section>
+
+	<section aria-labelledby="privacy-h">
+		<h2 id="privacy-h">Privacy</h2>
+		<ul>
+			<li>This page sets <strong>no cookies</strong>, uses <strong>no analytics</strong>, no tracking pixels, no third-party requests. All assets are served from this origin; there are no external fonts or CDNs.</li>
+			<li>Your station searches are <strong>not stored</strong> anywhere. The worker answers and forgets.</li>
+			<li>The worker uses your IP address <strong>in memory only</strong> to count requests against the rate limit. Counters are never written to storage or logs.</li>
+			<li>The worker logs the upstream API path it fetched (for example <code>/plan/8000105/260910/16</code>) so the cache can be verified. It does not log your IP or the content of your requests.</li>
+			<li>Cloudflare processes requests as the hosting provider and may keep operational logs; GitHub Pages does the same for the static files. See their respective privacy statements.</li>
+		</ul>
+	</section>
+
+	<section aria-labelledby="own-h">
+		<h2 id="own-h">Run your own</h2>
+		<p>About ten minutes, all on free tiers.</p>
+		<ol>
+			<li>Get credentials for the Timetables API at the <a href="https://developers.deutschebahn.com/" rel="noopener noreferrer">DB API Marketplace</a>.</li>
+			<li><code>git clone</code> the repository and <code>npm install</code>.</li>
+			<li>Deploy the worker:
+				<pre><code>cd worker
+cp .dev.vars.example .dev.vars   # lists the exact secret names
+npx wrangler secret put &lt;id-secret&gt;
+npx wrangler secret put &lt;key-secret&gt;
+npx wrangler deploy</code></pre>
+				<code>worker/.dev.vars.example</code> and the repository README name the two variables. Wrangler prints the worker URL.
+			</li>
+			<li>Set <code>ALLOWED_ORIGINS</code> in <code>worker/wrangler.toml</code> to the exact origin that serves this page, then deploy again. CORS fails loudly otherwise.</li>
+			<li>Point the page at the worker: set <code>DEFAULT_ENDPOINT</code> in <code>demo/app.js</code>, or append <code>?endpoint=https://your-worker.workers.dev/mcp</code>.</li>
+			<li>Serve <code>demo/</code> anywhere static — GitHub Pages via the included workflow, or <code>npx serve demo</code> locally.</li>
+		</ol>
+		<p class="muted">
+			The credentials live only as worker secrets. They are never sent to the browser, never
+			written into this repository, and never logged.
+		</p>
+	</section>
+
+	<section aria-labelledby="breaks-h">
+		<h2 id="breaks-h">What breaks at the limit</h2>
+		<ul>
+			<li><strong>Upstream quota exhausted (60/min).</strong> The page keeps working from cache and marks data as stale. The board shows the last snapshot with its age. Once the quota resets, fresh data returns automatically.</li>
+			<li><strong>No cache and no quota.</strong> The tool call returns a stable error code (<code>UPSTREAM_UNAVAILABLE</code> / <code>RATE_LIMITED</code>) and the page shows a retry hint. No blank screen, no stack trace.</li>
+			<li><strong>Too many requests from one IP (20/min).</strong> The page shows the throttled state and the seconds to wait. Reloading makes it worse.</li>
+			<li><strong>100,000 worker requests/day.</strong> The worker stops responding for the rest of the day. The static page still loads; board requests fail. Staying below this is what the client-side session cache and the 30 s refresh discipline are for.</li>
+			<li><strong>Going beyond the free tier.</strong> Workers Paid starts at $5/month and removes the daily request cap. The DB API quota is the harder ceiling: the cache buys a factor of ~1,000, not an unlimited budget.</li>
+		</ul>
+	</section>
+</main>
+
+<footer class="site">
+	<p>
+		Source: <a href="https://github.com/jorekai/db-timetable-mcp" rel="noopener noreferrer">jorekai/db-timetable-mcp</a> ·
+		MCP server under MIT, timetable data under CC BY 4.0 ·
+		No cookies, no tracking.
+	</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

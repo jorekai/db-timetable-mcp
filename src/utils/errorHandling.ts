@@ -7,7 +7,13 @@ export class AppError extends Error {
 	) {
 		super(message);
 		this.name = this.constructor.name;
-		Error.captureStackTrace(this, this.constructor);
+		// V8-only und in Edge-Runtimes (Cloudflare Workers) nicht vorhanden.
+		const captureStackTrace = (
+			Error as {
+				captureStackTrace?: (target: object, ctor?: unknown) => void;
+			}
+		).captureStackTrace;
+		captureStackTrace?.(this, this.constructor);
 	}
 }
 

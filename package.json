@@ -21,12 +21,14 @@
 		"start": "node dist/index.js",
 		"dev": "tsx watch src/index.ts",
 		"dev:http": "MCP_TRANSPORT=http tsx watch src/index.ts",
+		"dev:worker": "wrangler dev --config worker/wrangler.toml --port 8791",
+		"deploy:worker": "wrangler deploy --config worker/wrangler.toml",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
 		"check": "npm run lint && npm run typecheck && npm test && npm run build",
 		"prepublishOnly": "npm run check"
 	},
@@ -51,6 +53,7 @@
 		"node": ">=22"
 	},
 	"dependencies": {
+		"@cfworker/json-schema": "^4.1.1",
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"dotenv": "^17.4.2",
 		"express": "^5.2.1",
@@ -59,11 +62,13 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.4",
+		"@cloudflare/workers-types": "^5.20260911.1",
 		"@types/express": "^5.0.6",
 		"@types/node": "^24.10.0",
 		"@vitest/coverage-v8": "^4.1.10",
 		"tsx": "^4.21.0",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.10",
+		"wrangler": "^4.131.0"
 	}
 }

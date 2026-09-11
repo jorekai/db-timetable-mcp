@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import { z } from "zod";
+import { SERVER_INFO } from "./serverInfo.js";
 
 const DEFAULT_API_URL =
 	"https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1";
@@ -50,8 +50,8 @@ function parseAllowedHosts(value?: string): string[] | undefined {
 export function createConfig(env: Record<string, string | undefined>): Config {
 	const result = ConfigSchema.safeParse({
 		server: {
-			name: "DB Timetable MCP Server",
-			version: "2.0.0",
+			name: SERVER_INFO.name,
+			version: SERVER_INFO.version,
 			transport: normalizeTransport(env.MCP_TRANSPORT ?? env.TRANSPORT_TYPE),
 			host: env.HOST ?? "127.0.0.1",
 			port: env.PORT ?? "3000",
@@ -100,12 +100,3 @@ export function getEnvFilePaths(
 	];
 	return [...new Set(candidates)];
 }
-
-dotenv.config({
-	path: getEnvFilePaths(process.env, import.meta.url, process.cwd()),
-	quiet: true,
-});
-
-export const config = createConfig(process.env);
-
-export default config;

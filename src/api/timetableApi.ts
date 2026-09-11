@@ -1,4 +1,3 @@
-import config from "../config.js";
 import {
 	ApiError,
 	AppError,
@@ -45,7 +44,7 @@ export interface TimetableApi {
 
 export class TimetableApiClient implements TimetableApi {
 	constructor(
-		private readonly apiConfig: TimetableApiConfig = config.api,
+		private readonly apiConfig: TimetableApiConfig,
 		private readonly fetchImplementation: typeof fetch = globalThis.fetch,
 		private readonly now: () => Date = () => new Date(),
 	) {}
@@ -126,12 +125,13 @@ export class TimetableApiClient implements TimetableApi {
 
 	private async getTimetable(
 		endpoint: string,
+		evaNo: string,
 		includeRawXml = false,
 	): Promise<ApiResult<TimetableDocument>> {
 		const xml = await this.fetchXml(endpoint);
 		return this.result(
 			endpoint,
-			parseTimetableXml(xml),
+			parseTimetableXml(xml, evaNo),
 			includeRawXml ? xml : undefined,
 		);
 	}
@@ -142,6 +142,7 @@ export class TimetableApiClient implements TimetableApi {
 	}: TimetableParams): Promise<ApiResult<TimetableDocument>> {
 		return this.getTimetable(
 			`/fchg/${encodeURIComponent(evaNo)}`,
+			evaNo,
 			includeRawXml,
 		);
 	}
@@ -152,6 +153,7 @@ export class TimetableApiClient implements TimetableApi {
 	}: TimetableParams): Promise<ApiResult<TimetableDocument>> {
 		return this.getTimetable(
 			`/rchg/${encodeURIComponent(evaNo)}`,
+			evaNo,
 			includeRawXml,
 		);
 	}
@@ -163,7 +165,7 @@ export class TimetableApiClient implements TimetableApi {
 		includeRawXml,
 	}: PlanParams): Promise<ApiResult<TimetableDocument>> {
 		const endpoint = `/plan/${encodeURIComponent(evaNo)}/${date}/${hour}`;
-		return this.getTimetable(endpoint, includeRawXml);
+		return this.getTimetable(endpoint, evaNo, includeRawXml);
 	}
 
 	async findStations({
@@ -192,8 +194,8 @@ export class TimetableApiClient implements TimetableApi {
 			this.fetchXml(changesEndpoint),
 		]);
 		const data = mergeTimetables(
-			parseTimetableXml(plannedXml),
-			parseTimetableXml(changesXml),
+			parseTimetableXml(plannedXml, evaNo),
+			parseTimetableXml(changesXml, evaNo),
 		);
 		return this.result(
 			`${planEndpoint} + ${changesEndpoint}`,
@@ -202,5 +204,3 @@ export class TimetableApiClient implements TimetableApi {
 		);
 	}
 }
-
-export const timetableApi = new TimetableApiClient();
