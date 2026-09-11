@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- A package `exports` map, so the server, the API client, `serverInfo`, and the
+  error helpers can be imported by name rather than by a relative path.
+
+### Removed
+
+- The Cloudflare Worker, the static browser demo, and the Next.js web app moved
+  to a separate private repository. This one holds the server source only.
+
 ## [2.0.0] - 2026-07-17
 
 ### Added

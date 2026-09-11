@@ -16,8 +16,7 @@
 			"!!**/.wrangler",
 			"!!**/.next",
 			"!!**/.vercel",
-			"!!**/*.tsbuildinfo",
-			"!!web/next-env.d.ts"
+			"!!**/*.tsbuildinfo"
 		]
 	},
 	"formatter": {
@@ -30,16 +29,6 @@
 			"preset": "recommended"
 		}
 	},
-	"overrides": [
-		{
-			"includes": ["web/app/globals.css"],
-			"linter": {
-				"rules": {
-					"complexity": { "noImportantStyles": "off" }
-				}
-			}
-		}
-	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

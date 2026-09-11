@@ -9,6 +9,9 @@ yarn-debug.log
 dist/
 build/
 *.tsbuildinfo
+# Reste der ausgelagerten Next-App, solange sie lokal liegen
+.next/
+next-env.d.ts
 
 # Umgebungsvariablen
 .env
