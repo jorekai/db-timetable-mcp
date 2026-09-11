@@ -13,9 +13,9 @@ enabled = true
 
 [vars]
 ENVIRONMENT = "production"
-# CORS-Allowlist. Exakt die Origin der Pages-Seite, kein "*".
-# Für lokale Entwicklung siehe .dev.vars.example (dort zusätzlich localhost).
-ALLOWED_ORIGINS = "https://jorekai.github.io"
+# CORS-Allowlist. Exakt die Origins, kein "*".
+# jorekai.github.io = statische Pages-Demo, db-timetable-mcp-web.vercel.app = Next-App.
+ALLOWED_ORIGINS = "https://jorekai.github.io,https://db-timetable-mcp-web.vercel.app"
 # Nur für lokale Tests. In Produktion auf "0" lassen.
 ALLOW_SIMULATION = "0"
 

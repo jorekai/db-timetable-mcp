@@ -23,6 +23,9 @@ build/
 !.dev.vars.example
 .wrangler/
 
+# Vercel: lokaler Projekt-Link (Root Directory ist web/)
+.vercel/
+
 # Logs
 logs/
 *.log
