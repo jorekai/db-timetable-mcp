@@ -61,14 +61,14 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.4",
+		"@biomejs/biome": "^2.5.12",
 		"@cloudflare/workers-types": "^5.20260911.1",
 		"@types/express": "^5.0.6",
-		"@types/node": "^24.10.0",
-		"@vitest/coverage-v8": "^4.1.10",
-		"tsx": "^4.21.0",
+		"@types/node": "^26.5.0",
+		"@vitest/coverage-v8": "^5.0.0",
+		"tsx": "^4.23.13",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10",
+		"vitest": "^5.0.0",
 		"wrangler": "^4.131.0"
 	}
 }
