@@ -93,15 +93,6 @@ export function ExplainSections({ dict }: { dict: Dictionary }) {
 					</p>
 				</Block>
 
-				<Block heading={about.credentials.heading}>
-					<p>
-						<RichText text={about.credentials.p1} />
-					</p>
-					<p>
-						<RichText text={about.credentials.p2} />
-					</p>
-				</Block>
-
 				<Block heading={about.tools.heading}>
 					<p>
 						<RichText text={about.tools.intro} />

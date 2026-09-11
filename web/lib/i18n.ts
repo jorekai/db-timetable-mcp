@@ -30,7 +30,7 @@ const en = {
 	},
 	lede: {
 		lead: "This page is a real `MCP` client running in your browser.",
-		body: "It speaks raw JSON-RPC over Streamable HTTP to a Cloudflare Worker that runs the `db-timetable-mcp` server and holds the DB API credentials. There is no REST wrapper in between. Open the protocol log to read the exact bytes.",
+		body: "It speaks raw JSON-RPC over Streamable HTTP to a Cloudflare Worker that runs the `db-timetable-mcp` server. There is no REST wrapper in between. Open the protocol log to read the exact bytes.",
 		stateless:
 			"The worker is stateless: every call stands on its own, there is no session id, and `GET` and `DELETE` are answered with `405`.",
 	},
@@ -154,8 +154,8 @@ const en = {
 		mcp: {
 			heading: "What is MCP?",
 			p1: "MCP, the Model Context Protocol, is a way for one program to call the tools of another without either side knowing how the other is built. This page is one program. The worker is the other.",
-			p2: "Here the browser calls five tools by name and receives structured JSON. It sees Deutsche Bahn's timetable data. It never sees the DB API credentials: those stay on the server.",
-			p3: "That is the point of the pattern. The credentials and the quota live with the server. The client only asks for a result.",
+			p2: "Here the browser calls five tools by name and receives structured JSON. It sees Deutsche Bahn's timetable data. It never sees anything the server keeps to itself.",
+			p3: "That is the point of the pattern. The client asks for a result; the server holds everything else.",
 		},
 		time: {
 			heading: "Three versions of the same moment",
@@ -166,11 +166,6 @@ const en = {
 				"Only the deviations that were reported later. Fields that did not change are simply absent.",
 			effective:
 				"The value to display: the change where there is one, otherwise the plan. When a train is on time, `changed` is missing and `effective` equals `planned`. That absence is the message, not a gap.",
-		},
-		credentials: {
-			heading: "Where are the credentials?",
-			p1: "The DB API credentials live as a Cloudflare Worker secret. They are never sent to the browser and never committed to this repository.",
-			p2: "CORS is the boundary. The worker answers only the exact origins on its allowlist, so another site cannot spend this account's quota by pointing at the worker.",
 		},
 		cache: {
 			heading: "Why one board does not cost one call",
@@ -275,7 +270,7 @@ const de: Dictionary = {
 	},
 	lede: {
 		lead: "Diese Seite ist ein echter `MCP`-Client, der im Browser läuft.",
-		body: "Er spricht rohes JSON-RPC über Streamable HTTP mit einem Cloudflare Worker, der den `db-timetable-mcp`-Server ausführt und die Zugangsdaten hält. Dazwischen liegt kein REST-Wrapper. Im Protokoll lässt sich jede Nachricht im Original lesen.",
+		body: "Er spricht rohes JSON-RPC über Streamable HTTP mit einem Cloudflare Worker, der den `db-timetable-mcp`-Server ausführt. Dazwischen liegt kein REST-Wrapper. Im Protokoll lässt sich jede Nachricht im Original lesen.",
 		stateless:
 			"Der Worker ist zustandslos: jeder Aufruf steht für sich, es gibt keine Session-ID, und `GET` sowie `DELETE` werden mit `405` beantwortet.",
 	},
@@ -399,8 +394,8 @@ const de: Dictionary = {
 		mcp: {
 			heading: "Was ist MCP?",
 			p1: "MCP, das Model Context Protocol, ist ein Weg für ein Programm, die Werkzeuge eines anderen aufzurufen, ohne dass beide wissen müssen, wie das jeweils andere gebaut ist. Diese Seite ist das eine Programm. Der Worker ist das andere.",
-			p2: "Der Browser ruft hier fünf Werkzeuge namentlich auf und erhält strukturiertes JSON. Er sieht die Fahrplandaten der Deutschen Bahn. Er sieht nie die Zugangsdaten der DB-API; die bleiben auf dem Server.",
-			p3: "Das ist der Sinn des Musters. Zugangsdaten und Kontingent liegen beim Server. Der Client fragt nur nach einem Ergebnis.",
+			p2: "Der Browser ruft hier fünf Werkzeuge namentlich auf und erhält strukturiertes JSON. Er sieht die Fahrplandaten der Deutschen Bahn. Er sieht nie, was der Server für sich behält.",
+			p3: "Das ist der Sinn des Musters. Der Client fragt nach einem Ergebnis; alles andere bleibt beim Server.",
 		},
 		time: {
 			heading: "Drei Fassungen desselben Moments",
@@ -412,11 +407,6 @@ const de: Dictionary = {
 				"Nur die später gemeldeten Abweichungen. Unveränderte Felder fehlen schlicht.",
 			effective:
 				"Der anzuzeigende Wert: die Änderung, wo es eine gibt, sonst der Sollwert. Ist ein Zug pünktlich, fehlt `changed` und `effective` gleicht `planned`. Dieses Fehlen ist die Aussage, keine Lücke.",
-		},
-		credentials: {
-			heading: "Wo sind die Zugangsdaten?",
-			p1: "Die Zugangsdaten der DB-API liegen als Cloudflare-Worker-Secret. Sie werden nie an den Browser gesendet und nie in dieses Repository geschrieben.",
-			p2: "CORS ist die Grenze. Der Worker antwortet nur den exakten Origins seiner Allowlist, damit eine fremde Seite nicht über den Worker das Kontingent dieses Kontos verbrauchen kann.",
 		},
 		cache: {
 			heading: "Warum eine Tafel keinen Aufruf kostet",
