@@ -48,8 +48,9 @@ Then open `http://localhost:8000/en?endpoint=http://localhost:8791/mcp`.
 
 ## Deploy
 
-The app is deployed on Vercel. The origin of the deployment must be in the
-worker's `ALLOWED_ORIGINS` (exact match, never `*`):
+The app is deployed on Vercel. The Vercel project's **Root Directory is `web`**,
+so the git integration builds this app and not the repository root. The origin of
+the deployment must be in the worker's `ALLOWED_ORIGINS` (exact match, never `*`):
 
 ```bash
 # add https://<project>.vercel.app to worker/wrangler.toml, then
