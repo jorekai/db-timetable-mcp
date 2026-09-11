@@ -1,0 +1,24 @@
+name = "db-timetable-mcp"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Statisch, kein Durable Object, kein KV: der Worker nutzt die Cache API,
+# den Speicher des Isolates und den Free-Tier-Tarif.
+workers_dev = true
+# Keine Vorschau-URLs: die Demo spricht nur die produktive workers.dev-URL an.
+preview_urls = false
+
+[observability]
+enabled = true
+
+[vars]
+ENVIRONMENT = "production"
+# CORS-Allowlist. Exakt die Origin der Pages-Seite, kein "*".
+# Für lokale Entwicklung siehe .dev.vars.example (dort zusätzlich localhost).
+ALLOWED_ORIGINS = "https://jorekai.github.io"
+# Nur für lokale Tests. In Produktion auf "0" lassen.
+ALLOW_SIMULATION = "0"
+
+# Secrets werden NICHT hier eingetragen:
+#   npx wrangler secret put DB_TIMETABLE_CLIENT_ID
+#   npx wrangler secret put DB_TIMETABLE_CLIENT_SECRET

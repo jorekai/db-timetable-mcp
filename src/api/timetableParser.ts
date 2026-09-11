@@ -241,9 +241,15 @@ function parseTrip(value: unknown): Trip | undefined {
 	};
 }
 
-function parseStop(node: XmlNode): TimetableStop | undefined {
+function parseStop(
+	node: XmlNode,
+	stationEvaNo?: string,
+): TimetableStop | undefined {
 	const id = asString(node.id);
-	const evaNo = asString(node.eva);
+	// `/plan` traegt die EVA-Nummer nur am `<timetable>`-Root, `/rchg` und
+	// `/fchg` zusaetzlich am Halt. Ohne den Fallback fiele der Sollfahrplan
+	// komplett weg.
+	const evaNo = asString(node.eva) ?? stationEvaNo;
 	if (!id || !evaNo) return undefined;
 	return {
 		id,
@@ -255,19 +261,28 @@ function parseStop(node: XmlNode): TimetableStop | undefined {
 	};
 }
 
-export function parseTimetableXml(xml: string): TimetableDocument {
+/**
+ * @param stationEvaNo EVA-Nummer des angefragten Bahnhofs. `/plan` traegt sie
+ *   weder am Root noch am Halt, sondern nur in der Anfrage-URL.
+ */
+export function parseTimetableXml(
+	xml: string,
+	stationEvaNo?: string,
+): TimetableDocument {
 	const timetable = asNode(parseXml(xml).timetable);
 	if (!timetable) {
 		throw new Error(
 			"Ungültige XML-Antwort der DB Timetables API: timetable fehlt",
 		);
 	}
+	// `/rchg` und `/fchg` nennen sie am Root, `/plan` nur in der Anfrage.
+	const evaNo = asString(timetable.eva) ?? stationEvaNo;
 	return {
 		station: {
-			evaNo: asString(timetable.eva),
+			evaNo,
 			name: asString(timetable.station),
 		},
-		stops: asNodes(timetable.s).flatMap((node) => parseStop(node) ?? []),
+		stops: asNodes(timetable.s).flatMap((node) => parseStop(node, evaNo) ?? []),
 		messages: parseMessages(timetable.m),
 	};
 }

@@ -4,8 +4,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Request, Response } from "express";
 import type { TimetableApi } from "./api/timetableApi.js";
-import { timetableApi } from "./api/timetableApi.js";
-import { type Config, config } from "./config.js";
+import type { Config } from "./config.js";
+import { config, timetableApi } from "./env.js";
 import { createServer } from "./server.js";
 import { logger } from "./utils/logger.js";
 

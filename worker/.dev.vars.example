@@ -1,0 +1,20 @@
+# Template for local development: copy to worker/.dev.vars
+# worker/.dev.vars is gitignored and must never be committed.
+#
+#   cp worker/.dev.vars.example worker/.dev.vars
+#   npm run dev:worker            # wrangler dev on port 8791
+#
+# The values come from the DB API Marketplace
+# (https://developers.deutschebahn.com/).
+
+DB_TIMETABLE_CLIENT_ID=""
+DB_TIMETABLE_CLIENT_SECRET=""
+
+# For local development only, additionally allow the local web server origin.
+# In production this is exactly the Pages origin.
+ALLOWED_ORIGINS="https://jorekai.github.io,http://localhost:8000,http://127.0.0.1:8000"
+
+ENVIRONMENT="development"
+
+# Enables the X-Simulate-Upstream-Error header. Local only.
+ALLOW_SIMULATION="1"

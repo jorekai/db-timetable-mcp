@@ -113,6 +113,18 @@ describe("DB timetable XML parser", () => {
 		]);
 	});
 
+	test("übernimmt die angefragte EVA-Nummer, wenn die Antwort keine trägt", () => {
+		// `/plan` nennt die Nummer weder am Root noch am Halt.
+		const planXml = `<timetable station="Frankfurt(Main)Hbf"><s id="trip-1"><tl c="ICE" n="123" o="80" /><dp pt="2607171020" pp="8" /></s></timetable>`;
+
+		const timetable = parseTimetableXml(planXml, "8000105");
+
+		expect(timetable.station.evaNo).toBe("8000105");
+		expect(timetable.stops).toHaveLength(1);
+		expect(timetable.stops[0].evaNo).toBe("8000105");
+		expect(timetable.stops[0].departure?.effective.platform).toBe("8");
+	});
+
 	test("weist fehlerhaftes XML mit einer verständlichen Meldung zurück", () => {
 		expect(() => parseTimetableXml("<timetable><s></timetable>")).toThrow(
 			"Ungültige XML-Antwort der DB Timetables API",

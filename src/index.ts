@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from "node:url";
-import { config } from "./config.js";
+import { config } from "./env.js";
 import { startHttpServer, startStdioServer } from "./transport.js";
 import { logger } from "./utils/logger.js";
 

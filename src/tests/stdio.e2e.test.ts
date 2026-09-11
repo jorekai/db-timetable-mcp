@@ -30,5 +30,8 @@ describe("stdio End-to-End", () => {
 
 		expect(tools.map((tool) => tool.name)).toContain("getStationBoard");
 		expect(stderr).toContain("MCP-Server lauscht über stdio");
-	});
+		// Der Test startet einen echten Node-Prozess. Das Laden des SDK dauert
+		// gemessen 5 s, der komplette Server-Einstieg 10–25 s (auch aus dist).
+		// Der Standard-Timeout von 5 s ist dafür zu knapp.
+	}, 60_000);
 });
