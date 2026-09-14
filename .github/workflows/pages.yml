@@ -36,7 +36,7 @@ jobs:
 
       # The demo is plain HTML/CSS/JS: no build step, no framework, no bundler.
       - name: Upload demo artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: demo
 
