@@ -42,6 +42,9 @@ export function createWorkerServer(
 	});
 }
 
+/** Größter POST-Body, den der Worker liest; MCP-Aufrufe sind wenige KiB groß. */
+export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+
 /**
  * Stateless Streamable HTTP: pro Request ein eigener Server und Transport.
  * `sessionIdGenerator: undefined` unterdrückt die `Mcp-Session-Id`; jeder
@@ -66,6 +69,7 @@ export async function handleMcpRequest(
 		sessionIdGenerator: undefined,
 		// JSON statt SSE: der Browser ruft mit fetch auf und braucht keinen Stream.
 		enableJsonResponse: true,
+		maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
 	});
 
 	await server.connect(transport);
