@@ -5,6 +5,13 @@ import { registerTimetableResources } from "./resources/index.js";
 import { SERVER_INFO } from "./serverInfo.js";
 import { registerTimetableTools } from "./tools/index.js";
 
+/**
+ * Obergrenze für Array-Elemente und Objekt-Schlüssel in den Argumenten eines
+ * `tools/call`. Die Werkzeuge nehmen nur wenige skalare Felder entgegen; die
+ * Grenze hält die Schema-Validierung bei übergroßen Eingaben billig.
+ */
+export const MAX_TOOL_INPUT_ELEMENTS = 1_000;
+
 const INSTRUCTIONS =
 	"Nutze getStationBoard für eine korrekte Bahnhofstafel. In Ereignissen sind effective.time, effective.platform und effective.path die anzuzeigenden Werte. planned enthält den Sollzustand, changed ausschließlich gemeldete Abweichungen. getCurrentTimetable ist der vollständige Änderungsbestand und keine eigenständige Bahnhofstafel.";
 
@@ -32,6 +39,7 @@ export function createServer(
 	const server = new McpServer(options.serverInfo ?? SERVER_INFO, {
 		instructions: INSTRUCTIONS,
 		jsonSchemaValidator: options.jsonSchemaValidator,
+		maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
 	});
 	registerTimetableTools(server, api);
 	registerTimetableResources(server, api);
