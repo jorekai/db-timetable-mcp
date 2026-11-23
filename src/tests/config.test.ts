@@ -51,7 +51,7 @@ describe("Konfiguration", () => {
 
 	test("spricht standardmäßig OpenBoards an", () => {
 		expect(createConfig({}).api.baseUrl).toBe(
-			"https://apis.deutschebahn.com/db-api-marketplace/apis/open-boards/v1",
+			"https://apis.deutschebahn.com/db-api-marketplace/apis/open-boards/v1"
 		);
 	});
 
@@ -60,14 +60,12 @@ describe("Konfiguration", () => {
 			createConfig({
 				DB_TIMETABLE_BASE_URL:
 					"https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1",
-			}),
+			})
 		).toThrow("OpenBoards");
 	});
 
 	test("weist ungültige Ports früh zurück", () => {
-		expect(() => createConfig({ PORT: "70000" })).toThrow(
-			"Ungültige Server-Konfiguration",
-		);
+		expect(() => createConfig({ PORT: "70000" })).toThrow("Ungültige Server-Konfiguration");
 	});
 
 	test("verlangt bei öffentlicher Bindung eine Host-Allowlist", () => {
@@ -75,11 +73,7 @@ describe("Konfiguration", () => {
 	});
 
 	test("sucht .env sowohl im Arbeitsverzeichnis als auch neben dist", () => {
-		const paths = getEnvFilePaths(
-			{},
-			"file:///project/dist/config.js",
-			"/launcher-directory",
-		);
+		const paths = getEnvFilePaths({}, "file:///project/dist/config.js", "/launcher-directory");
 
 		expect(paths).toEqual(["/launcher-directory/.env", "/project/.env"]);
 	});
@@ -89,8 +83,8 @@ describe("Konfiguration", () => {
 			getEnvFilePaths(
 				{ DOTENV_CONFIG_PATH: "/secure/db.env" },
 				"file:///project/dist/config.js",
-				"/launcher-directory",
-			),
+				"/launcher-directory"
+			)
 		).toEqual(["/secure/db.env"]);
 	});
 });

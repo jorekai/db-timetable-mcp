@@ -1,7 +1,4 @@
-import {
-	type McpServer,
-	ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { TimetableApi } from "../api/timetableApi.js";
 import { InvalidInputError } from "../utils/errorHandling.js";
 
@@ -14,15 +11,13 @@ const DATA_MODEL = {
 			"Herkunft von effective.time: SCHEDULE = Sollzeit ohne Echtzeit, PREVIEW = Prognose, REAL = bereits eingetreten.",
 		delayMinutes:
 			"Differenz zwischen effective.time und planned.time in Minuten, auf ganze Minuten gerundet.",
-		platformChanged:
-			"True, wenn sich das aktuelle Gleis vom Sollgleis unterscheidet.",
+		platformChanged: "True, wenn sich das aktuelle Gleis vom Sollgleis unterscheidet.",
 		isCancelled: "True, wenn die Ankunft oder Abfahrt ausfällt.",
 		isAdditional:
 			"True bei einem zusätzlichen Halt. Zusammen mit isCancelled ist es ein zurückgenommener Zusatzhalt.",
 		noPassengerChange: "True, wenn Ein- oder Aussteigen nicht möglich ist.",
 		via: "Auswahl der Unterwegshalte (Ankunft: frühere, Abfahrt: kommende). Nicht vollständig: ein fehlender Halt heißt nicht, dass der Zug dort nicht hält.",
-		messages:
-			"Meldungen zum Halt: disruption, cause, quality, note oder attribute.",
+		messages: "Meldungen zum Halt: disruption, cause, quality, note oder attribute.",
 	},
 	stop: {
 		arrival:
@@ -35,8 +30,7 @@ const DATA_MODEL = {
 	board: {
 		truncatedTransportTypes:
 			"Nicht leer, wenn Einträge fehlen. Dann das Zeitfenster verkürzen oder transportTypes einschränken.",
-		consideredStopPlaces:
-			"Alle Haltestellen, die in die Tafel eingeflossen sind.",
+		consideredStopPlaces: "Alle Haltestellen, die in die Tafel eingeflossen sind.",
 	},
 	timestamp: {
 		raw: "Unveränderter ISO-8601-Zeitstempel.",
@@ -68,20 +62,16 @@ function jsonResource(uri: URL, value: unknown) {
 	};
 }
 
-export function registerTimetableResources(
-	server: McpServer,
-	api: TimetableApi,
-): void {
+export function registerTimetableResources(server: McpServer, api: TimetableApi): void {
 	server.registerResource(
 		"data-model",
 		"db-timetable://docs/data-model",
 		{
 			title: "DB Timetable Datenmodell",
-			description:
-				"Semantik der strukturierten Zeiten, Gleise und Echtzeitänderungen",
+			description: "Semantik der strukturierten Zeiten, Gleise und Echtzeitänderungen",
 			mimeType: "application/json",
 		},
-		(uri) => jsonResource(uri, DATA_MODEL),
+		(uri) => jsonResource(uri, DATA_MODEL)
 	);
 
 	const boards = [
@@ -104,6 +94,7 @@ export function registerTimetableResources(
 			load: (evaNo: string) => api.getArrivals({ evaNo }),
 		},
 	];
+
 	for (const board of boards) {
 		server.registerResource(
 			board.name,
@@ -115,8 +106,7 @@ export function registerTimetableResources(
 				description: board.description,
 				mimeType: "application/json",
 			},
-			async (uri, { evaNo }) =>
-				jsonResource(uri, await board.load(variable(evaNo))),
+			async (uri, { evaNo }) => jsonResource(uri, await board.load(variable(evaNo)))
 		);
 	}
 
@@ -129,6 +119,6 @@ export function registerTimetableResources(
 			mimeType: "application/json",
 		},
 		async (uri, { pattern }) =>
-			jsonResource(uri, await api.findStations({ pattern: variable(pattern) })),
+			jsonResource(uri, await api.findStations({ pattern: variable(pattern) }))
 	);
 }

@@ -29,8 +29,9 @@ export async function main(): Promise<void> {
 			() =>
 				new Promise((resolve, reject) => {
 					httpServer.close((error) => (error ? reject(error) : resolve()));
-				}),
+				})
 		);
+
 		return;
 	}
 
@@ -38,9 +39,7 @@ export async function main(): Promise<void> {
 	registerShutdown(() => server.close());
 }
 
-const isMain = Boolean(
-	process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url,
-);
+const isMain = Boolean(process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url);
 
 if (isMain) {
 	main().catch((error) => {

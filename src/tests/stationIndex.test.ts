@@ -1,9 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-	parseStopPlace,
-	renderIndexModule,
-	splitStopPlaces,
-} from "../../scripts/stationIndex.js";
+import { parseStopPlace, renderIndexModule, splitStopPlaces } from "../../scripts/stationIndex.js";
 
 const keys = (entries: [string, string][]) =>
 	`<keyList>${entries.map(([key, value]) => `<KeyValue><Key>${key}</Key><Value>${value}</Value></KeyValue>`).join("")}</keyList>`;
@@ -27,15 +23,17 @@ ${codes}${name}
 
 const oldForm = place(
 	'<Name lang="de">Cottbus &amp; Co<Text lang="de">Cottbus &amp; Co</Text><Text lang="dsb">Chóśebuz</Text></Name>',
-	'<privateCodes><PrivateCode type="https://daten.bahnhof.de/namespace/stada/">1077</PrivateCode></privateCodes><PrivateCode>1077</PrivateCode>',
+	'<privateCodes><PrivateCode type="https://daten.bahnhof.de/namespace/stada/">1077</PrivateCode></privateCodes><PrivateCode>1077</PrivateCode>'
 );
+
 const newForm = place(
 	'<Name><Text lang="dsb">Chóśebuz</Text><Text lang="de">Cottbus &amp; Co</Text></Name>',
-	'<privateCodes><PrivateCode type="other">7</PrivateCode><PrivateCode type="https://daten.bahnhof.de/namespace/stada/">1077</PrivateCode></privateCodes>',
+	'<privateCodes><PrivateCode type="other">7</PrivateCode><PrivateCode type="https://daten.bahnhof.de/namespace/stada/">1077</PrivateCode></privateCodes>'
 );
+
 const inlineOnly = place(
 	'<Name lang="de">Cottbus &amp; Co</Name>',
-	"<PrivateCode>1077</PrivateCode>",
+	"<PrivateCode>1077</PrivateCode>"
 );
 
 const expected = {
@@ -54,9 +52,11 @@ async function* chunked(text: string, size: number) {
 
 async function collect(text: string, size: number): Promise<string[]> {
 	const result: string[] = [];
+
 	for await (const xml of splitStopPlaces(chunked(text, size))) {
 		result.push(xml);
 	}
+
 	return result;
 }
 
@@ -70,45 +70,33 @@ describe("Aufbau des Bahnhofsverzeichnisses", () => {
 	});
 
 	test("überspringt Bahnhöfe ohne gültige EVA-Nummer", () => {
-		expect(
-			parseStopPlace(oldForm.replace(/8010073|8098073/g, "123")),
-		).toBeUndefined();
+		expect(parseStopPlace(oldForm.replace(/8010073|8098073/g, "123"))).toBeUndefined();
 	});
 
-	test.each([1, 7, 50, 100_000])(
-		"trennt StopPlaces bei Blockgröße %i",
-		async (size) => {
-			const xml = `<root><StopPlaceRef ref="a"/>${oldForm}<x/>${newForm}</root>`;
-			expect(await collect(xml, size)).toEqual([oldForm, newForm]);
-		},
-	);
+	test.each([1, 7, 50, 100_000])("trennt StopPlaces bei Blockgröße %i", async (size) => {
+		const xml = `<root><StopPlaceRef ref="a"/>${oldForm}<x/>${newForm}</root>`;
+		expect(await collect(xml, size)).toEqual([oldForm, newForm]);
+	});
 
 	test("bricht bei einem abgeschnittenen Export ab", async () => {
-		await expect(collect(oldForm.slice(0, -5), 64)).rejects.toThrow(
-			"mitten in einem StopPlace",
-		);
+		await expect(collect(oldForm.slice(0, -5), 64)).rejects.toThrow("mitten in einem StopPlace");
 	});
 
 	test("erzeugt ein sortiertes Modul und maskiert Sonderzeichen", () => {
 		const module = renderIndexModule(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: prüft die Maskierung
 			[{ ...expected, evaNumbers: ["9000000"], name: "a`b${c}\\d" }, expected],
-			"2026-11-23T00:00:00Z",
+			"2026-11-23T00:00:00Z"
 		);
+
 		const read = new Function(
-			`${module.replaceAll("export const", "var").replace(": string", "")}; return STATION_INDEX;`,
+			`${module.replaceAll("export const", "var").replace(": string", "")}; return STATION_INDEX;`
 		);
+
 		const lines: string[] = read().split("\n");
-		expect(lines.map((line) => line.split("\t")[1])).toEqual([
-			"Cottbus & Co",
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: prüft die Maskierung
-			"a`b${c}\\d",
-		]);
+		expect(lines.map((line) => line.split("\t")[1])).toEqual(["Cottbus & Co", "a`b${c}\\d"]);
 	});
 
 	test("weist Trennzeichen in Feldern ab", () => {
-		expect(() =>
-			renderIndexModule([{ ...expected, name: "a\tb" }], "x"),
-		).toThrow("Trennzeichen");
+		expect(() => renderIndexModule([{ ...expected, name: "a\tb" }], "x")).toThrow("Trennzeichen");
 	});
 });

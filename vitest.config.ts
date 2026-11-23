@@ -15,13 +15,7 @@ export default defineConfig({
 				branches: 80,
 				statements: 85,
 			},
-			exclude: [
-				"node_modules/",
-				"src/tests/**",
-				"dist/**",
-				"vitest.config.ts",
-				"**/types.ts",
-			],
+			exclude: ["node_modules/", "src/tests/**", "dist/**", "vitest.config.ts", "**/types.ts"],
 		},
 	},
 });

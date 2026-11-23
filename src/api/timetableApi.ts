@@ -40,6 +40,7 @@ export interface TimetableApi {
 }
 
 const ENDPOINTS = { arrival: "/arrivals", departure: "/departures" } as const;
+
 /** Grenzen und Vorgaben von OpenBoards 1.0.3. */
 const MAX_DURATION_MINUTES = 480;
 const DEFAULT_DURATION_MINUTES = 60;
@@ -60,11 +61,13 @@ interface FetchedBoard {
 async function readErrorDetail(response: Response): Promise<string> {
 	try {
 		const body = (await response.json()) as Record<string, unknown>;
+
 		// title/detail: OpenBoards; moreInformation: vorgelagertes API-Gateway.
 		const detail = [body.title, body.detail, body.moreInformation]
 			.filter((part) => typeof part === "string" && part)
 			.join(": ")
 			.slice(0, 300);
+
 		return detail ? ` (${detail})` : "";
 	} catch {
 		return "";
@@ -75,54 +78,53 @@ export class TimetableApiClient implements TimetableApi {
 	constructor(
 		private readonly apiConfig: TimetableApiConfig,
 		private readonly fetchImplementation: typeof fetch = globalThis.fetch,
-		private readonly now: () => Date = () => new Date(),
+		private readonly now: () => Date = () => new Date()
 	) {}
 
 	private assertCredentials(): void {
 		if (this.apiConfig.clientId && this.apiConfig.clientSecret) return;
 		throw new AuthenticationError(
-			"DB-API-Zugangsdaten fehlen. Setze DB_TIMETABLE_CLIENT_ID und DB_TIMETABLE_CLIENT_SECRET in der .env-Datei oder in der MCP-Client-Konfiguration.",
+			"DB-API-Zugangsdaten fehlen. Setze DB_TIMETABLE_CLIENT_ID und DB_TIMETABLE_CLIENT_SECRET in der .env-Datei oder in der MCP-Client-Konfiguration."
 		);
 	}
 
 	private async post(endpoint: string, body: unknown): Promise<unknown> {
 		this.assertCredentials();
+
 		try {
-			const response = await this.fetchImplementation(
-				`${this.apiConfig.baseUrl}${endpoint}`,
-				{
-					method: "POST",
-					headers: {
-						"DB-Client-ID": this.apiConfig.clientId,
-						"DB-Api-Key": this.apiConfig.clientSecret,
-						"Content-Type": "application/json",
-						Accept: "application/json",
-					},
-					body: JSON.stringify(body),
-					signal: AbortSignal.timeout(this.apiConfig.timeoutMs),
+			const response = await this.fetchImplementation(`${this.apiConfig.baseUrl}${endpoint}`, {
+				method: "POST",
+				headers: {
+					"DB-Client-ID": this.apiConfig.clientId,
+					"DB-Api-Key": this.apiConfig.clientSecret,
+					"Content-Type": "application/json",
+					Accept: "application/json",
 				},
-			);
+				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(this.apiConfig.timeoutMs),
+			});
+
 			await this.assertSuccessfulResponse(response, endpoint);
+
 			return await this.readJson(response);
 		} catch (error) {
 			if (error instanceof AppError) throw error;
+
 			if (error instanceof Error && error.name === "TimeoutError") {
 				throw new ApiError(
 					"Zeitüberschreitung beim Abruf der DB OpenBoards API",
 					"API_TIMEOUT",
-					504,
+					504
 				);
 			}
-			throw new ApiError(
-				"DB OpenBoards API ist derzeit nicht erreichbar",
-				"API_UNAVAILABLE",
-				503,
-			);
+
+			throw new ApiError("DB OpenBoards API ist derzeit nicht erreichbar", "API_UNAVAILABLE", 503);
 		}
 	}
 
 	private async readJson(response: Response): Promise<unknown> {
 		const text = await response.text();
+
 		try {
 			return JSON.parse(text);
 		} catch {
@@ -134,56 +136,56 @@ export class TimetableApiClient implements TimetableApi {
 		return new ApiError(
 			"Die DB OpenBoards API lieferte eine Antwort in unerwartetem Format",
 			"API_INVALID_RESPONSE",
-			502,
+			502
 		);
 	}
 
-	private async assertSuccessfulResponse(
-		response: Response,
-		endpoint: string,
-	): Promise<void> {
+	private async assertSuccessfulResponse(response: Response, endpoint: string): Promise<void> {
 		if (response.ok) return;
 		const detail = await readErrorDetail(response);
+
 		if (response.status === 401 || response.status === 403) {
 			throw new AuthenticationError(
-				`Die DB OpenBoards API hat die Zugangsdaten abgelehnt. Prüfe Client-ID, API-Key und das OpenBoards-Abonnement${detail}`,
+				`Die DB OpenBoards API hat die Zugangsdaten abgelehnt. Prüfe Client-ID, API-Key und das OpenBoards-Abonnement${detail}`
 			);
 		}
+
 		if (response.status === 404) {
-			throw new ResourceNotFoundError(
-				`Keine DB-Fahrplandaten für ${endpoint} gefunden${detail}`,
-			);
+			throw new ResourceNotFoundError(`Keine DB-Fahrplandaten für ${endpoint} gefunden${detail}`);
 		}
+
 		const code = response.status === 429 ? "API_RATE_LIMIT" : "API_ERROR";
 		throw new ApiError(
 			`DB OpenBoards API antwortete mit HTTP ${response.status}${detail}`,
 			code,
-			response.status,
+			response.status
 		);
 	}
 
 	private resolveWindow(params: BoardParams): Window {
-		const start = params.startTime
-			? parseBerlinTime(params.startTime)
-			: this.now();
+		const start = params.startTime ? parseBerlinTime(params.startTime) : this.now();
+
 		if (!start) {
 			throw new InvalidInputError(
-				"startTime muss ein gültiger Zeitpunkt sein, z.B. 2026-07-17T10:00",
+				"startTime muss ein gültiger Zeitpunkt sein, z.B. 2026-07-17T10:00"
 			);
 		}
+
 		const duration = params.durationMinutes ?? DEFAULT_DURATION_MINUTES;
+
 		if (!(duration >= 1 && duration <= MAX_DURATION_MINUTES)) {
 			throw new InvalidInputError(
-				`durationMinutes muss zwischen 1 und ${MAX_DURATION_MINUTES} liegen`,
+				`durationMinutes muss zwischen 1 und ${MAX_DURATION_MINUTES} liegen`
 			);
 		}
+
 		return { start, end: new Date(start.getTime() + duration * 60_000) };
 	}
 
 	private async fetchBoard(
 		kind: EventKind,
 		params: BoardParams,
-		window: Window,
+		window: Window
 	): Promise<FetchedBoard> {
 		const payload = await this.post(ENDPOINTS[kind], {
 			stopPlaceOrStation: {
@@ -204,12 +206,16 @@ export class TimetableApiClient implements TimetableApi {
 				transportTypes: params.transportTypes,
 			}),
 		});
+
 		const raw = (payload ?? {}) as RawBoard;
 		const list = kind === "arrival" ? raw.arrivals : raw.departures;
+
 		// Eine leere Tafel kommt ohne Liste; meta belegt dann die gültige Antwort.
 		const entries: unknown =
 			list ?? (Array.isArray(raw.meta?.consideredStopPlaces) ? [] : undefined);
+
 		if (!Array.isArray(entries)) throw this.invalidResponse();
+
 		try {
 			return { raw, stops: mapStops(raw, entries, kind) };
 		} catch {
@@ -222,14 +228,16 @@ export class TimetableApiClient implements TimetableApi {
 		params: BoardParams,
 		window: Window,
 		boards: RawBoard[],
-		stops: BoardStop[],
+		stops: BoardStop[]
 	): ApiResult<Board> {
 		const collect = (read: (board: RawBoard) => string[] | undefined) => [
 			...new Set(boards.flatMap((board) => read(board) ?? [])),
 		];
+
 		const [ref] = mapStopRefs(boards, [params.evaNo]);
 		const name = ref.name ?? soleStationName(boards);
 		const station = { ...ref, ...(name && { name }) };
+
 		return {
 			source: "Deutsche Bahn OpenBoards API",
 			retrievedAt: this.now().toISOString(),
@@ -242,64 +250,56 @@ export class TimetableApiClient implements TimetableApi {
 				},
 				consideredStopPlaces: mapStopRefs(
 					boards,
-					collect((board) => board.meta?.consideredStopPlaces),
+					collect((board) => board.meta?.consideredStopPlaces)
 				),
-				truncatedTransportTypes: collect(
-					(board) => board.meta?.truncatedTransportTypes,
-				),
+				truncatedTransportTypes: collect((board) => board.meta?.truncatedTransportTypes),
 				stops,
 			},
 		};
 	}
 
-	private async getSingleBoard(
-		kind: EventKind,
-		params: BoardParams,
-	): Promise<ApiResult<Board>> {
+	private async getSingleBoard(kind: EventKind, params: BoardParams): Promise<ApiResult<Board>> {
 		const window = this.resolveWindow(params);
 		const board = await this.fetchBoard(kind, params, window);
-		return this.boardResult(
-			ENDPOINTS[kind],
-			params,
-			window,
-			[board.raw],
-			board.stops,
-		);
+
+		return this.boardResult(ENDPOINTS[kind], params, window, [board.raw], board.stops);
 	}
 
-	async getDepartures(params: BoardParams): Promise<ApiResult<Board>> {
+	getDepartures(params: BoardParams): Promise<ApiResult<Board>> {
 		return this.getSingleBoard("departure", params);
 	}
 
-	async getArrivals(params: BoardParams): Promise<ApiResult<Board>> {
+	getArrivals(params: BoardParams): Promise<ApiResult<Board>> {
 		return this.getSingleBoard("arrival", params);
 	}
 
 	async getStationBoard(params: BoardParams): Promise<ApiResult<Board>> {
 		const window = this.resolveWindow(params);
+
 		const [arrivals, departures] = await Promise.all([
 			this.fetchBoard("arrival", params, window),
 			this.fetchBoard("departure", params, window),
 		]);
+
 		return this.boardResult(
 			`${ENDPOINTS.arrival} + ${ENDPOINTS.departure}`,
 			params,
 			window,
 			[arrivals.raw, departures.raw],
-			mergeStops(arrivals.stops, departures.stops),
+			mergeStops(arrivals.stops, departures.stops)
 		);
 	}
 
-	async findStations({
+	findStations({
 		pattern,
 		limit = DEFAULT_STATION_LIMIT,
 	}: StationParams): Promise<ApiResult<StationSearchResult>> {
-		return {
+		return Promise.resolve({
 			source: "DB InfraGO OpenStation (NeTEx)",
 			retrievedAt: this.now().toISOString(),
 			dataAsOf: STATION_DATA_AS_OF,
 			endpoint: "stations/stationIndex",
 			data: searchStations(pattern, limit),
-		};
+		});
 	}
 }

@@ -1,5 +1,7 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
+
 export type LogMetadata = Record<string, unknown>;
+
 export type LogSink = (line: string) => void;
 
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -11,14 +13,17 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 function serializeMetadata(metadata: LogMetadata): string {
 	const seen = new WeakSet<object>();
+
 	return JSON.stringify(metadata, (_key, value: unknown) => {
 		if (value instanceof Error) {
 			return { name: value.name, message: value.message, stack: value.stack };
 		}
+
 		if (value && typeof value === "object") {
 			if (seen.has(value)) return "[Circular]";
 			seen.add(value);
 		}
+
 		return value;
 	});
 }
@@ -37,15 +42,17 @@ const stderrSink: LogSink = (line) => {
 
 	if (typeof nodeProcess?.stderr?.write === "function") {
 		nodeProcess.stderr.write(line);
+
 		return;
 	}
+
 	console.error(line.trimEnd());
 };
 
 export class Logger {
 	constructor(
 		private level: LogLevel = "info",
-		private sink: LogSink = stderrSink,
+		private sink: LogSink = stderrSink
 	) {}
 
 	setLevel(level: LogLevel): void {
@@ -55,9 +62,7 @@ export class Logger {
 	private log(level: LogLevel, message: string, metadata?: LogMetadata): void {
 		if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[this.level]) return;
 		const context = metadata ? ` ${serializeMetadata(metadata)}` : "";
-		this.sink(
-			`[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}${context}\n`,
-		);
+		this.sink(`[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}${context}\n`);
 	}
 
 	debug(message: string, metadata?: LogMetadata): void {

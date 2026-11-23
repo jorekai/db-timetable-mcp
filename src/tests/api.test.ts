@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { TimetableApiClient } from "../api/timetableApi.js";
 import { board, entry } from "./fixtures.js";
 
-const json = (body: unknown, status = 200) =>
-	new Response(JSON.stringify(body), { status });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 describe("TimetableApiClient", () => {
 	const fetchMock = vi.fn<typeof fetch>();
+
 	const createClient = (credentials = true) =>
 		new TimetableApiClient(
 			{
@@ -16,10 +16,10 @@ describe("TimetableApiClient", () => {
 				timeoutMs: 5_000,
 			},
 			fetchMock,
-			() => new Date("2026-07-17T08:00:00.000Z"),
+			() => new Date("2026-07-17T08:00:00.000Z")
 		);
-	const body = (call = 0) =>
-		JSON.parse(String(fetchMock.mock.calls[call][1]?.body));
+
+	const body = (call = 0) => JSON.parse(String(fetchMock.mock.calls[call][1]?.body));
 
 	beforeEach(() => {
 		fetchMock.mockReset();
@@ -39,7 +39,7 @@ describe("TimetableApiClient", () => {
 					"DB-Api-Key": "client-secret",
 					"Content-Type": "application/json",
 				}),
-			}),
+			})
 		);
 		expect(body()).toEqual({
 			stopPlaceOrStation: { evaNumbers: ["8000105"] },
@@ -101,16 +101,12 @@ describe("TimetableApiClient", () => {
 	test("führt Ankünfte und Abfahrten zur Bahnhofstafel zusammen", async () => {
 		fetchMock.mockImplementation(async (url) =>
 			String(url).endsWith("/arrivals")
-				? json(
-						board("arrivals", [
-							entry({ timeSchedule: "2026-07-17T10:15:00+02:00" }),
-						]),
-					)
+				? json(board("arrivals", [entry({ timeSchedule: "2026-07-17T10:15:00+02:00" })]))
 				: json(
 						board("departures", [entry()], {
 							meta: { truncatedTransportTypes: ["REGIONAL_TRAIN"] },
-						}),
-					),
+						})
+					)
 		);
 
 		const result = await createClient().getStationBoard({ evaNo: "8000105" });
@@ -126,20 +122,18 @@ describe("TimetableApiClient", () => {
 
 	test("bricht die Bahnhofstafel ab, wenn eine Hälfte fehlt", async () => {
 		fetchMock.mockImplementation(async (url) =>
-			String(url).endsWith("/arrivals")
-				? json(board("arrivals", []))
-				: json({}, 500),
+			String(url).endsWith("/arrivals") ? json(board("arrivals", [])) : json({}, 500)
 		);
 
-		await expect(
-			createClient().getStationBoard({ evaNo: "8000105" }),
-		).rejects.toMatchObject({ code: "API_ERROR" });
+		await expect(createClient().getStationBoard({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "API_ERROR",
+		});
 	});
 
 	test("meldet fehlende Zugangsdaten vor einem Netzwerkaufruf", async () => {
-		await expect(
-			createClient(false).getDepartures({ evaNo: "8000105" }),
-		).rejects.toMatchObject({ code: "AUTHENTICATION_ERROR" });
+		await expect(createClient(false).getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "AUTHENTICATION_ERROR",
+		});
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -153,9 +147,9 @@ describe("TimetableApiClient", () => {
 	])("übersetzt HTTP %i in %s", async (status, code) => {
 		fetchMock.mockResolvedValue(json({}, status));
 
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toMatchObject({ code });
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code,
+		});
 	});
 
 	test("nennt bei 401 den Grund des API-Gateways", async () => {
@@ -164,29 +158,26 @@ describe("TimetableApiClient", () => {
 				{
 					httpCode: "401",
 					httpMessage: "Unauthorized",
-					moreInformation:
-						"Cannot find valid subscription for the incoming API request.",
+					moreInformation: "Cannot find valid subscription for the incoming API request.",
 				},
-				401,
-			),
+				401
+			)
 		);
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toThrow("Cannot find valid subscription");
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(
+			"Cannot find valid subscription"
+		);
 	});
 
 	test("nennt den Fehlertext der DB, verträgt aber auch Text ohne JSON", async () => {
 		fetchMock.mockResolvedValueOnce(
-			json({ title: "Bad Request", detail: "evaNumber unknown" }, 400),
+			json({ title: "Bad Request", detail: "evaNumber unknown" }, 400)
 		);
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toThrow("HTTP 400 (Bad Request: evaNumber unknown)");
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(
+			"HTTP 400 (Bad Request: evaNumber unknown)"
+		);
 
 		fetchMock.mockResolvedValueOnce(new Response("<html>", { status: 502 }));
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toThrow(/HTTP 502$/);
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(/HTTP 502$/);
 	});
 
 	test("liest eine leere Tafel ohne Liste als null Halte", async () => {
@@ -201,15 +192,10 @@ describe("TimetableApiClient", () => {
 				},
 			],
 		};
-		fetchMock.mockImplementation(
-			async () => new Response(JSON.stringify(empty)),
-		);
 
-		for (const method of [
-			"getDepartures",
-			"getArrivals",
-			"getStationBoard",
-		] as const) {
+		fetchMock.mockImplementation(async () => new Response(JSON.stringify(empty)));
+
+		for (const method of ["getDepartures", "getArrivals", "getStationBoard"] as const) {
 			const result = await createClient()[method]({ evaNo: "8000448" });
 			expect(result.data.stops).toEqual([]);
 			expect(result.data.station).toEqual({
@@ -232,25 +218,23 @@ describe("TimetableApiClient", () => {
 				platformSchedule: undefined,
 				messages: undefined,
 				journeyInfo: undefined,
-			}),
+			})
 		);
+
 		fetchMock.mockImplementation(async (url) =>
 			json(
 				String(url).endsWith("/arrivals")
 					? board("arrivals", planned)
-					: board("departures", planned),
-			),
+					: board("departures", planned)
+			)
 		);
 
-		for (const method of [
-			"getDepartures",
-			"getArrivals",
-			"getStationBoard",
-		] as const) {
+		for (const method of ["getDepartures", "getArrivals", "getStationBoard"] as const) {
 			const result = await createClient()[method]({
 				evaNo: "8000760",
 				startTime: "2026-07-18T08:00",
 			});
+
 			expect(result.data.stops.map((stop) => stop.journeyId)).toEqual([
 				"journey-0",
 				"journey-1",
@@ -267,31 +251,25 @@ describe("TimetableApiClient", () => {
 					stations: ["A", "B"].map((name) => ({
 						localizedNames: [{ language: "deu", name }],
 					})),
-				}),
-			),
+				})
+			)
 		);
 		const { data } = await createClient().getDepartures({ evaNo: "8000448" });
 		expect(data.station).toEqual({ evaNo: "8000448" });
 	});
 
 	test.each([
-		[
-			"Liste mit falschem Typ",
-			'{"departures":{},"meta":{"consideredStopPlaces":[]}}',
-		],
+		["Liste mit falschem Typ", '{"departures":{},"meta":{"consideredStopPlaces":[]}}'],
 		["kein JSON", "<html>"],
 		["null", "null"],
 		["fehlende Liste", "{}"],
-		[
-			"ungültige Zeit",
-			JSON.stringify(board("departures", [entry({ time: "kaputt" })])),
-		],
+		["ungültige Zeit", JSON.stringify(board("departures", [entry({ time: "kaputt" })]))],
 	])("weist unerwartete Antworten zurück: %s", async (_name, text) => {
 		fetchMock.mockResolvedValue(new Response(text));
 
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toMatchObject({ code: "API_INVALID_RESPONSE" });
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "API_INVALID_RESPONSE",
+		});
 	});
 
 	test.each([
@@ -300,9 +278,9 @@ describe("TimetableApiClient", () => {
 	])("übersetzt %s in %s", async (name, code) => {
 		fetchMock.mockRejectedValue(Object.assign(new Error("x"), { name }));
 
-		await expect(
-			createClient().getDepartures({ evaNo: "8000105" }),
-		).rejects.toMatchObject({ code });
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code,
+		});
 	});
 
 	test.each([
@@ -312,7 +290,7 @@ describe("TimetableApiClient", () => {
 		{ durationMinutes: Number.NaN },
 	])("weist ungültige Zeitfenster ab: %o", async (params) => {
 		await expect(
-			createClient().getDepartures({ evaNo: "8000105", ...params }),
+			createClient().getDepartures({ evaNo: "8000105", ...params })
 		).rejects.toMatchObject({ code: "INVALID_INPUT" });
 		expect(fetchMock).not.toHaveBeenCalled();
 	});

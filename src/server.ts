@@ -32,16 +32,15 @@ export interface CreateServerOptions {
  * Ohne Node- und Umgebungsabhängigkeiten: der npm-Einstieg (src/env.ts) und
  * der Cloudflare Worker (worker/src/mcp.ts) teilen sich diese Funktion.
  */
-export function createServer(
-	api: TimetableApi,
-	options: CreateServerOptions = {},
-): McpServer {
+export function createServer(api: TimetableApi, options: CreateServerOptions = {}): McpServer {
 	const server = new McpServer(options.serverInfo ?? SERVER_INFO, {
 		instructions: INSTRUCTIONS,
 		maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
 		jsonSchemaValidator: options.jsonSchemaValidator,
 	});
+
 	registerTimetableTools(server, api);
 	registerTimetableResources(server, api);
+
 	return server;
 }

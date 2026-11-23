@@ -4,24 +4,16 @@ import type { RawEntry } from "../api/openBoards.js";
 import { board, entry } from "./fixtures.js";
 
 const map = (raw: RawEntry, kind: "arrival" | "departure" = "departure") =>
-	mapStops(
-		board(kind === "arrival" ? "arrivals" : "departures", [raw]),
-		[raw],
-		kind,
-	)[0];
+	mapStops(board(kind === "arrival" ? "arrivals" : "departures", [raw]), [raw], kind)[0];
 
-const stop = (
-	kind: "arrival" | "departure",
-	time: string,
-	overrides: Partial<RawEntry> = {},
-) =>
+const stop = (kind: "arrival" | "departure", time: string, overrides: Partial<RawEntry> = {}) =>
 	map(
 		entry({
 			time: `2026-07-17T${time}:00+02:00`,
 			timeSchedule: `2026-07-17T${time}:00+02:00`,
 			...overrides,
 		}),
-		kind,
+		kind
 	);
 
 describe("OpenBoards-Abbildung", () => {
@@ -118,6 +110,7 @@ describe("OpenBoards-Abbildung", () => {
 				replacementTransport: {},
 			},
 		};
+
 		const mapped = mapStops({}, [raw], "departure")[0];
 
 		expect(mapped).not.toHaveProperty("stationName");
@@ -141,19 +134,11 @@ describe("OpenBoards-Abbildung", () => {
 				stop("arrival", "10:05", { evaNumber: "8098105" }),
 				stop("arrival", "10:30", { journeyId: "endet-hier" }),
 			],
-			[
-				stop("departure", "10:10"),
-				stop("departure", "10:02", { journeyId: "beginnt-hier" }),
-			],
+			[stop("departure", "10:10"), stop("departure", "10:02", { journeyId: "beginnt-hier" })]
 		);
 
 		expect(
-			stops.map((s) => [
-				s.journeyId,
-				s.evaNo,
-				Boolean(s.arrival),
-				Boolean(s.departure),
-			]),
+			stops.map((s) => [s.journeyId, s.evaNo, Boolean(s.arrival), Boolean(s.departure)])
 		).toEqual([
 			["beginnt-hier", "8000105", false, true],
 			["journey-1", "8098105", true, false],
@@ -165,18 +150,14 @@ describe("OpenBoards-Abbildung", () => {
 	test("ordnet bei Ringlinien jeder Abfahrt ihre eigene Ankunft zu", () => {
 		const stops = mergeStops(
 			[stop("arrival", "10:00"), stop("arrival", "11:00")],
-			[
-				stop("departure", "11:01"),
-				stop("departure", "10:01"),
-				stop("departure", "09:01"),
-			],
+			[stop("departure", "11:01"), stop("departure", "10:01"), stop("departure", "09:01")]
 		);
 
 		expect(
 			stops.map((s) => [
 				s.arrival?.planned.time.local.slice(11),
 				s.departure?.planned.time.local.slice(11),
-			]),
+			])
 		).toEqual([
 			[undefined, "09:01"],
 			["10:00", "10:01"],

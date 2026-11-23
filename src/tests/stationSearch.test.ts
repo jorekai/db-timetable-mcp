@@ -8,12 +8,14 @@ describe("Bahnhofssuche", () => {
 	test("das mitgelieferte Verzeichnis ist vollständig lesbar", () => {
 		const lines = STATION_INDEX.split("\n");
 		expect(lines.length).toBeGreaterThan(5_000);
+
 		for (const line of lines) {
 			const fields = line.split("\t");
 			expect(fields, line).toHaveLength(7);
 			expect(fields[0], line).toMatch(/^\d{7}(,\d{7})*$/);
 			expect(fields[1], line).not.toBe("");
 		}
+
 		const evas = lines.flatMap((line) => line.split("\t")[0].split(","));
 		expect(new Set(evas).size).toBe(evas.length);
 	});
@@ -62,13 +64,10 @@ describe("Bahnhofssuche", () => {
 		expect(result.totalMatches).toBeGreaterThan(50);
 	});
 
-	test.each(["xyzxyz", "0000000", "???", "*"])(
-		"liefert für %s eine leere Liste",
-		(pattern) => {
-			expect(searchStations(pattern, 5)).toEqual({
-				totalMatches: 0,
-				stations: [],
-			});
-		},
-	);
+	test.each(["xyzxyz", "0000000", "???", "*"])("liefert für %s eine leere Liste", (pattern) => {
+		expect(searchStations(pattern, 5)).toEqual({
+			totalMatches: 0,
+			stations: [],
+		});
+	});
 });

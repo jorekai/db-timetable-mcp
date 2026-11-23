@@ -10,21 +10,18 @@ import { logger } from "../utils/logger.js";
 const EvaNoSchema = z
 	.string()
 	.regex(/^\d{7}$/, "Die EVA-Nummer muss aus genau sieben Ziffern bestehen")
-	.describe(
-		"Siebenstellige EVA-Nummer aus findStations, z.B. 8000105 für Frankfurt (Main) Hbf",
-	);
+	.describe("Siebenstellige EVA-Nummer aus findStations, z.B. 8000105 für Frankfurt (Main) Hbf");
 
 const BoardInputSchema = z.object({
 	evaNo: EvaNoSchema,
 	startTime: z
 		.string()
 		.refine((value) => parseBerlinTime(value) !== undefined, {
-			message:
-				"startTime muss ein gültiger ISO-8601-Zeitpunkt sein, z.B. 2026-07-17T10:00",
+			message: "startTime muss ein gültiger ISO-8601-Zeitpunkt sein, z.B. 2026-07-17T10:00",
 		})
 		.optional()
 		.describe(
-			"Beginn des Zeitfensters in ISO 8601. Ohne Offset gilt deutsche Ortszeit, z.B. 2026-07-17T10:00. Standard: jetzt. Die DB sagt Daten bis 30 Tage in die Vergangenheit zu.",
+			"Beginn des Zeitfensters in ISO 8601. Ohne Offset gilt deutsche Ortszeit, z.B. 2026-07-17T10:00. Standard: jetzt. Die DB sagt Daten bis 30 Tage in die Vergangenheit zu."
 		),
 	durationMinutes: z
 		.number()
@@ -47,19 +44,19 @@ const BoardInputSchema = z.object({
 				"INTER_REGIONAL_TRAIN",
 				"REGIONAL_TRAIN",
 				"CITY_TRAIN",
-			]),
+			])
 		)
 		.min(1)
 		.optional()
 		.describe(
-			"Nur diese Produktklassen: HIGH_SPEED_TRAIN = ICE, INTERCITY_TRAIN = IC/EC, REGIONAL_TRAIN = RE/RB, CITY_TRAIN = S-Bahn. Standard: alle",
+			"Nur diese Produktklassen: HIGH_SPEED_TRAIN = ICE, INTERCITY_TRAIN = IC/EC, REGIONAL_TRAIN = RE/RB, CITY_TRAIN = S-Bahn. Standard: alle"
 		),
 	includeNearbyStops: z
 		.boolean()
 		.optional()
 		.default(true)
 		.describe(
-			"Zusammengehörige Haltestellen einbeziehen, z.B. den Tiefbahnhof. Bei false nur die angegebene EVA-Nummer",
+			"Zusammengehörige Haltestellen einbeziehen, z.B. den Tiefbahnhof. Bei false nur die angegebene EVA-Nummer"
 		),
 	maxEntriesPerTransportType: z
 		.number()
@@ -69,7 +66,7 @@ const BoardInputSchema = z.object({
 		.optional()
 		.default(50)
 		.describe(
-			"Höchstzahl der Einträge je Produktklasse. truncatedTransportTypes nennt abgeschnittene Klassen",
+			"Höchstzahl der Einträge je Produktklasse. truncatedTransportTypes nennt abgeschnittene Klassen"
 		),
 });
 
@@ -91,10 +88,7 @@ const StationInputSchema = z.object({
 });
 
 const ApiResultSchema = z.object({
-	source: z.enum([
-		"Deutsche Bahn OpenBoards API",
-		"DB InfraGO OpenStation (NeTEx)",
-	]),
+	source: z.enum(["Deutsche Bahn OpenBoards API", "DB InfraGO OpenStation (NeTEx)"]),
 	retrievedAt: z.string(),
 	dataAsOf: z.string().optional(),
 	endpoint: z.string(),
@@ -120,7 +114,9 @@ function toolError(error: unknown): CallToolResult {
 		error instanceof AppError
 			? error
 			: new AppError("Unerwarteter Fehler beim Abruf der Fahrplandaten");
+
 	logger.error(appError.message, { code: appError.code, error });
+
 	return {
 		content: [
 			{
@@ -134,9 +130,7 @@ function toolError(error: unknown): CallToolResult {
 	};
 }
 
-async function execute<T>(
-	operation: () => Promise<ApiResult<T>>,
-): Promise<CallToolResult> {
+async function execute<T>(operation: () => Promise<ApiResult<T>>): Promise<CallToolResult> {
 	try {
 		return toolResult(await operation());
 	} catch (error) {
@@ -144,10 +138,7 @@ async function execute<T>(
 	}
 }
 
-export function registerTimetableTools(
-	server: McpServer,
-	api: TimetableApi,
-): void {
+export function registerTimetableTools(server: McpServer, api: TimetableApi): void {
 	server.registerTool(
 		"getStationBoard",
 		{
@@ -158,7 +149,7 @@ export function registerTimetableTools(
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
-		(args) => execute(() => api.getStationBoard(args)),
+		(args) => execute(() => api.getStationBoard(args))
 	);
 
 	server.registerTool(
@@ -171,7 +162,7 @@ export function registerTimetableTools(
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
-		(args) => execute(() => api.getDepartures(args)),
+		(args) => execute(() => api.getDepartures(args))
 	);
 
 	server.registerTool(
@@ -184,7 +175,7 @@ export function registerTimetableTools(
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
-		(args) => execute(() => api.getArrivals(args)),
+		(args) => execute(() => api.getArrivals(args))
 	);
 
 	server.registerTool(
@@ -197,6 +188,6 @@ export function registerTimetableTools(
 			outputSchema: ApiResultSchema,
 			annotations: { ...annotations, openWorldHint: false },
 		},
-		(args) => execute(() => api.findStations(args)),
+		(args) => execute(() => api.findStations(args))
 	);
 }

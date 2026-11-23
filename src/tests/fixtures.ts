@@ -40,7 +40,7 @@ export function entry(overrides: Partial<RawEntry> = {}): RawEntry {
 export function board(
 	kind: "arrivals" | "departures",
 	entries: RawEntry[],
-	overrides: Partial<RawBoard> = {},
+	overrides: Partial<RawBoard> = {}
 ): RawBoard {
 	return {
 		administrations: [
@@ -66,9 +66,7 @@ export function board(
 				{
 					messageID: 2,
 					effect: "REDUCED_SERVICE",
-					descriptions: [
-						{ language: "deu", text: "Bauarbeiten", textShort: "Bau" },
-					],
+					descriptions: [{ language: "deu", text: "Bauarbeiten", textShort: "Bau" }],
 				},
 			],
 			notes: [{ messageID: 3, descriptions: [] }],

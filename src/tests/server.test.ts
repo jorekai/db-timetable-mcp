@@ -29,6 +29,7 @@ describe("MCP-Serververtrag", () => {
 		getArrivals: vi.fn().mockResolvedValue(boardResult),
 		findStations: vi.fn().mockResolvedValue(stationResult),
 	};
+
 	let client: Client;
 	let server: ReturnType<typeof createServer>;
 
@@ -36,12 +37,10 @@ describe("MCP-Serververtrag", () => {
 		vi.clearAllMocks();
 		client = new Client({ name: "test-client", version: "1.0.0" });
 		server = createServer(api);
-		const [clientTransport, serverTransport] =
-			InMemoryTransport.createLinkedPair();
-		await Promise.all([
-			server.connect(serverTransport),
-			client.connect(clientTransport),
-		]);
+
+		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+		await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
 	});
 
 	afterEach(async () => {
@@ -57,6 +56,7 @@ describe("MCP-Serververtrag", () => {
 			"getArrivals",
 			"findStations",
 		]);
+
 		for (const tool of tools) {
 			expect(tool.description?.length).toBeGreaterThan(80);
 			expect(tool.inputSchema.type).toBe("object");
@@ -97,11 +97,12 @@ describe("MCP-Serververtrag", () => {
 				includeNearbyStops: false,
 				maxEntriesPerTransportType: 1,
 			};
+
 			const result = await client.callTool({ name, arguments: args });
 
 			expect(result.isError).not.toBe(true);
 			expect(api[name]).toHaveBeenCalledWith(args);
-		},
+		}
 	);
 
 	test("führt findStations mit Standardlimit aus", async () => {
@@ -123,18 +124,15 @@ describe("MCP-Serververtrag", () => {
 		{ evaNo: "8000105", durationMinutes: 481 },
 		{ evaNo: "8000105", transportTypes: ["BUS"] },
 		{ evaNo: "8000105", maxEntriesPerTransportType: 51 },
-	])(
-		"weist ungültige Eingaben über das MCP-Schema zurück: %o",
-		async (args) => {
-			const result = await client.callTool({
-				name: "getDepartures",
-				arguments: args,
-			});
+	])("weist ungültige Eingaben über das MCP-Schema zurück: %o", async (args) => {
+		const result = await client.callTool({
+			name: "getDepartures",
+			arguments: args,
+		});
 
-			expect(result.isError).toBe(true);
-			expect(api.getDepartures).not.toHaveBeenCalled();
-		},
-	);
+		expect(result.isError).toBe(true);
+		expect(api.getDepartures).not.toHaveBeenCalled();
+	});
 
 	test("weist Argumente mit zu vielen Elementen vor dem Werkzeug ab", async () => {
 		const call = (elements: number) =>
@@ -155,15 +153,18 @@ describe("MCP-Serververtrag", () => {
 
 	test("meldet fachliche Fehler mit Code und verbirgt unerwartete", async () => {
 		api.getDepartures.mockRejectedValueOnce(
-			new ApiError("zu viele Anfragen", "API_RATE_LIMIT", 429),
+			new ApiError("zu viele Anfragen", "API_RATE_LIMIT", 429)
 		);
 		api.getArrivals.mockRejectedValueOnce(new Error("intern"));
+
 		const read = async (name: string) => {
 			const result = await client.callTool({
 				name,
 				arguments: { evaNo: "8000105" },
 			});
+
 			expect(result.isError).toBe(true);
+
 			return (result.content as { text: string }[])[0].text;
 		};
 
@@ -176,30 +177,27 @@ describe("MCP-Serververtrag", () => {
 
 	test("stellt dynamische JSON-Ressourcen bereit", async () => {
 		const templates = await client.listResourceTemplates();
-		expect(templates.resourceTemplates.map((item) => item.uriTemplate)).toEqual(
-			[
-				"db-api:board/{evaNo}",
-				"db-api:departures/{evaNo}",
-				"db-api:arrivals/{evaNo}",
-				"db-api:station/{pattern}",
-			],
-		);
+		expect(templates.resourceTemplates.map((item) => item.uriTemplate)).toEqual([
+			"db-api:board/{evaNo}",
+			"db-api:departures/{evaNo}",
+			"db-api:arrivals/{evaNo}",
+			"db-api:station/{pattern}",
+		]);
 
 		const result = await client.readResource({
 			uri: "db-api:station/K%C3%B6ln%20Hbf",
 		});
+
 		const content = result.contents[0];
 		expect(content.mimeType).toBe("application/json");
-		expect("text" in content && JSON.parse(content.text)).toEqual(
-			stationResult,
-		);
+		expect("text" in content && JSON.parse(content.text)).toEqual(stationResult);
 		expect(api.findStations).toHaveBeenCalledWith({ pattern: "Köln Hbf" });
 	});
 
 	test("weist fehlerhaft kodierte Ressourcen-URIs zurück", async () => {
-		await expect(
-			client.readResource({ uri: "db-api:station/%zz" }),
-		).rejects.toThrow("fehlerhaft kodiert");
+		await expect(client.readResource({ uri: "db-api:station/%zz" })).rejects.toThrow(
+			"fehlerhaft kodiert"
+		);
 		expect(api.findStations).not.toHaveBeenCalled();
 	});
 
@@ -219,6 +217,7 @@ describe("MCP-Serververtrag", () => {
 		const result = await client.readResource({
 			uri: "db-timetable://docs/data-model",
 		});
+
 		const content = result.contents[0];
 		const schema = "text" in content ? JSON.parse(content.text) : {};
 
