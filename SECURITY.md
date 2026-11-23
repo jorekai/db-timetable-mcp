@@ -18,4 +18,13 @@ Please do not publish exploitable details in a public issue. Use GitHub Private 
 
 ## Checks
 
-CI runs lint, type checking, tests, a reproducible build, coverage thresholds, `npm audit`, and a container build. Dependabot tracks npm, Docker, and GitHub Actions dependencies.
+CI runs oxlint and oxfmt, type checking, tests with coverage thresholds, a reproducible build, and a container build. These security checks run as well:
+
+| Check | Scope | Blocks |
+|---|---|---|
+| `npm audit` | Runtime dependencies from `moderate`, all dependencies from `high` | Yes |
+| Semgrep | `p/typescript` and `p/nodejs` | `ERROR` rules only |
+| gitleaks | Commits of a pull request, otherwise the full history | Yes |
+| zizmor | GitHub Actions workflows and the Dependabot configuration | From medium severity |
+
+The audit, Semgrep, and the full secret scan also run every week. Actions are pinned to commit hashes. Dependabot tracks npm, Docker, and GitHub Actions dependencies and waits seven days before it proposes a new release; security updates are not delayed.

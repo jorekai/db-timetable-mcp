@@ -1,0 +1,60 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Montags, fängt Advisories, die nach einem Merge erscheinen.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # npm audit liest nur das Lockfile, eine Installation ist nicht nötig.
+      - name: Laufzeit-Abhängigkeiten
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Alle Abhängigkeiten
+        run: npm audit --audit-level=high
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep==1.177.0
+
+      # Ergänzt oxlint um Datenflussanalyse. Nur die ERROR-Regeln blockieren.
+      - name: Semgrep (blockierend, nur ERROR)
+        run: |
+          semgrep scan --config p/typescript --config p/nodejs \
+            --metrics=off --severity=ERROR --error src scripts tools/oxlint/lint-changed.mjs
+
+      - name: Semgrep (informativ, alle Stufen)
+        continue-on-error: true
+        run: |
+          semgrep scan --config p/typescript --config p/nodejs \
+            --metrics=off src scripts tools/oxlint/lint-changed.mjs
