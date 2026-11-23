@@ -14,6 +14,7 @@ Please do not publish exploitable details in a public issue. Use GitHub Private 
 - Streamable HTTP binds to loopback by default. Public deployments need TLS and authentication in front of the server.
 - With `HOST=0.0.0.0` or `HOST=::`, `ALLOWED_HOSTS` is required.
 - The server is read-only against the DB API, but unprotected remote access can consume your personal API quota.
+- `tools/call` arguments are limited to 1,000 array elements and object keys.
 
 ## Checks
 

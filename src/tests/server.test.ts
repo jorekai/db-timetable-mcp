@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { createServer } from "../server.js";
+import { createServer, MAX_TOOL_INPUT_ELEMENTS } from "../server.js";
 import { ApiError } from "../utils/errorHandling.js";
 
 const boardResult = {
@@ -135,6 +135,23 @@ describe("MCP-Serververtrag", () => {
 			expect(api.getDepartures).not.toHaveBeenCalled();
 		},
 	);
+
+	test("weist Argumente mit zu vielen Elementen vor dem Werkzeug ab", async () => {
+		const call = (elements: number) =>
+			client.callTool({
+				name: "findStations",
+				arguments: {
+					pattern: "Berlin",
+					extra: Array.from({ length: elements }, () => 0),
+				},
+			});
+
+		expect((await call(MAX_TOOL_INPUT_ELEMENTS + 1)).isError).toBe(true);
+		expect(api.findStations).not.toHaveBeenCalled();
+
+		expect((await call(100)).isError).not.toBe(true);
+		expect(api.findStations).toHaveBeenCalledOnce();
+	});
 
 	test("meldet fachliche Fehler mit Code und verbirgt unerwartete", async () => {
 		api.getDepartures.mockRejectedValueOnce(
