@@ -1,8 +1,17 @@
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createHttpApp, startHttpServer } from "../transport.js";
+
+function listeningPort(server: Server) {
+	// SAFETY: address() is an AddressInfo for a listening TCP server, and every
+	// caller waits for "listening" on a host and port.
+	const address = server.address() as AddressInfo;
+
+	return address.port;
+}
 
 describe("Streamable-HTTP-Transport", () => {
 	const api = {
@@ -27,8 +36,7 @@ describe("Streamable-HTTP-Transport", () => {
 	beforeEach(async () => {
 		httpServer = app.listen(0, "127.0.0.1");
 		await new Promise<void>((resolve) => httpServer.once("listening", resolve));
-		const address = httpServer.address() as AddressInfo;
-		baseUrl = `http://127.0.0.1:${address.port}`;
+		baseUrl = `http://127.0.0.1:${listeningPort(httpServer)}`;
 	});
 
 	afterEach(async () => {
@@ -72,6 +80,40 @@ describe("Streamable-HTTP-Transport", () => {
 		});
 	});
 
+	test.each([
+		["ungültiges JSON", '{"geheim":"SENTINEL', "application/json", 400, -32_700],
+		["zu großer Body", `"SENTINEL${"a".repeat(200_000)}"`, "application/json", 413, -32_600],
+		["unbekannter Zeichensatz", '"SENTINEL"', "application/json; charset=x-foo", 415, -32_600],
+	])(
+		"lehnt %s ab, ohne den Body zu protokollieren",
+		async (_name, body, contentType, status, code) => {
+			const spies = [
+				vi.spyOn(console, "error").mockImplementation(() => undefined),
+				vi.spyOn(process.stderr, "write").mockImplementation(() => true),
+			];
+
+			const response = await fetch(`${baseUrl}/mcp`, {
+				method: "POST",
+				headers: { "Content-Type": contentType },
+				body,
+			});
+
+			const output = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+
+			for (const spy of spies) {
+				spy.mockRestore();
+			}
+
+			const payload = await response.text();
+
+			expect(response.status).toBe(status);
+			expect(JSON.parse(payload)).toMatchObject({ jsonrpc: "2.0", error: { code }, id: null });
+			expect(payload).not.toContain("SENTINEL");
+			expect(output).toContain("HTTP-Anfrage abgelehnt");
+			expect(output).not.toContain("SENTINEL");
+		}
+	);
+
 	test("startet den konfigurierten HTTP-Listener auf einem freien Port", async () => {
 		const server = await startHttpServer(api, {
 			name: "DB Timetable MCP Server",
@@ -82,9 +124,7 @@ describe("Streamable-HTTP-Transport", () => {
 			endpoint: "/mcp",
 		});
 
-		const address = server.address() as AddressInfo;
-
-		expect(address.port).toBeGreaterThan(0);
+		expect(listeningPort(server)).toBeGreaterThan(0);
 		await new Promise<void>((resolve, reject) =>
 			server.close((error?: Error) => (error ? reject(error) : resolve()))
 		);

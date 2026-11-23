@@ -2,7 +2,7 @@ import type { Server as HttpServer } from "node:http";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import type { TimetableApi } from "./api/timetableApi.js";
 import type { Config } from "./config.js";
 import { config, timetableApi } from "./env.js";
@@ -16,6 +16,53 @@ const methodNotAllowed = {
 	error: { code: -32_000, message: "Method not allowed" },
 	id: null,
 };
+
+interface HttpRequestError extends Error {
+	status?: number;
+	type?: string;
+}
+
+/**
+ * Beantwortet Fehler aus der Body-Verarbeitung als JSON-RPC.
+ *
+ * Der Standard-Handler von Express protokolliert das ganze Fehlerobjekt, und
+ * das enthält bei ungültigem JSON den Anfrage-Body. Hier landen nur Status und
+ * Fehlerart im Log.
+ */
+function handleRequestError(
+	error: HttpRequestError,
+	_request: Request,
+	response: Response,
+	next: NextFunction
+) {
+	const status = error.status ?? 500;
+
+	logger.warn("HTTP-Anfrage abgelehnt", { status, type: error.type ?? error.name });
+
+	if (response.headersSent) {
+		next(new Error("Antwort bereits begonnen"));
+
+		return;
+	}
+
+	response.status(status).json({
+		jsonrpc: "2.0",
+		error: requestErrorBody(status, error.type),
+		id: null,
+	});
+}
+
+function requestErrorBody(status: number, type?: string) {
+	if (type === "entity.parse.failed") {
+		return { code: -32_700, message: "Parse error" };
+	}
+
+	if (status >= 400 && status < 500) {
+		return { code: -32_600, message: "Invalid Request" };
+	}
+
+	return { code: -32_603, message: "Internal server error" };
+}
 
 export function createHttpApp(
 	api: TimetableApi = timetableApi,
@@ -69,6 +116,7 @@ export function createHttpApp(
 	app.delete(serverConfig.endpoint, (_request: Request, response: Response) => {
 		response.status(405).json(methodNotAllowed);
 	});
+	app.use(handleRequestError);
 
 	return app;
 }
