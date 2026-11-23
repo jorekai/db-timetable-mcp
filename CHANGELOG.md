@@ -35,6 +35,13 @@ subscription to the Open Boards product in the DB API Marketplace.
   license" in the README.
 - Rejected credentials are reported with the reason given by the API gateway.
 
+### Fixed
+
+- The container image builds again: `npm ci` no longer runs the `prepare` build before
+  the sources are copied.
+- Dependencies with published advisories are updated, including the MCP SDK (1.32.2)
+  and `body-parser` (2.4.0).
+
 ### Removed
 
 - **Breaking:** `getPlannedTimetable`, `getCurrentTimetable`, `getRecentChanges`,
