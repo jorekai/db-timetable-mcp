@@ -219,6 +219,46 @@ describe("TimetableApiClient", () => {
 		}
 	});
 
+	// Issue 28: getPlannedTimetable verwarf früher jeden Halt ohne Echtzeitdaten.
+	test("liefert für ein künftiges Zeitfenster jeden Halt ohne Echtzeitdaten", async () => {
+		const planned = ["08:05", "08:20", "08:58"].map((time, index) =>
+			entry({
+				journeyId: `journey-${index}`,
+				evaNumber: "8000760",
+				time: `2026-07-18T${time}:00+02:00`,
+				timeSchedule: `2026-07-18T${time}:00+02:00`,
+				timeType: "SCHEDULE",
+				platform: undefined,
+				platformSchedule: undefined,
+				messages: undefined,
+				journeyInfo: undefined,
+			}),
+		);
+		fetchMock.mockImplementation(async (url) =>
+			json(
+				String(url).endsWith("/arrivals")
+					? board("arrivals", planned)
+					: board("departures", planned),
+			),
+		);
+
+		for (const method of [
+			"getDepartures",
+			"getArrivals",
+			"getStationBoard",
+		] as const) {
+			const result = await createClient()[method]({
+				evaNo: "8000760",
+				startTime: "2026-07-18T08:00",
+			});
+			expect(result.data.stops.map((stop) => stop.journeyId)).toEqual([
+				"journey-0",
+				"journey-1",
+				"journey-2",
+			]);
+		}
+	});
+
 	test("rät bei mehreren Stationen keinen Namen", async () => {
 		fetchMock.mockResolvedValue(
 			new Response(

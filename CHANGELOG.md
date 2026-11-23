@@ -33,10 +33,15 @@ subscription to the Open Boards product in the DB API Marketplace.
   Timetables API.
 - **Licence:** the OpenBoards product page does not state CC BY 4.0. See "Data source and
   license" in the README.
+- `tools/call` arguments with more than 1,000 elements are rejected before validation.
 - Rejected credentials are reported with the reason given by the API gateway.
 
 ### Fixed
 
+- A planned timetable for a future hour is no longer empty
+  ([issue 28](https://github.com/jorekai/db-timetable-mcp/issues/28)). `getPlannedTimetable`
+  dropped every stop without live data; `getDepartures`, `getArrivals`, and
+  `getStationBoard` with `startTime` replace it.
 - The container image builds again: `npm ci` no longer runs the `prepare` build before
   the sources are copied.
 - Dependencies with published advisories are updated, including the MCP SDK (1.32.2)
