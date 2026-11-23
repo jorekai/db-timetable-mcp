@@ -68,3 +68,6 @@ Thumbs.db
 .agent/
 .claude/
 GEMINI.md
+
+# Erzeugt von tools/oxlint/lint-changed.mjs
+.oxlintrc.changed.generated.json

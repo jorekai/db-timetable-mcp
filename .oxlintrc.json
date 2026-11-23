@@ -1,0 +1,142 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	// Basis-Gate für das ganze Repository: jeder Fehler blockiert pre-commit,
+	// pre-push und CI. Die strengere Stufe für geänderte Dateien steht in
+	// .oxlintrc.changed.json.
+	"plugins": ["eslint", "typescript", "unicorn", "oxc"],
+	"jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
+	"categories": {
+		"correctness": "error"
+	},
+	"env": {
+		"node": true,
+		"es2024": true
+	},
+	"ignorePatterns": [
+		"node_modules",
+		"dist",
+		"coverage",
+		"**/*.d.ts",
+		".agent",
+		".claude",
+		// Lokale Reste der ausgelagerten Anwendungen
+		"web",
+		"worker",
+		// Vendort, folgt dem Stil des Originals
+		"tools/oxlint/anti-slop"
+	],
+	"overrides": [
+		{
+			// Attrappen tragen bewusst die async-Signatur des echten Codes.
+			"files": ["src/tests/**"],
+			"rules": {
+				"eslint/require-await": "off"
+			}
+		}
+	],
+	"rules": {
+		// --- blockierend ---
+		"eslint/no-extra-boolean-cast": "error",
+		"eslint/no-useless-catch": "error",
+		"eslint/no-useless-constructor": "error",
+		"eslint/no-lone-blocks": "error",
+		"eslint/no-useless-rename": "error",
+		"unicorn/no-useless-switch-case": "error",
+		"eslint/no-const-assign": "error",
+		"eslint/no-constant-condition": "error",
+		"eslint/no-constructor-return": "error",
+		"eslint/no-empty-character-class": "error",
+		"eslint/no-empty-pattern": "error",
+		"eslint/no-obj-calls": "error",
+		"eslint/constructor-super": "error",
+		"eslint/no-new-native-nonconstructor": "error",
+		"eslint/no-nonoctal-decimal-escape": "error",
+		"eslint/no-loss-of-precision": "error",
+		"eslint/no-self-assign": "error",
+		"eslint/no-setter-return": "error",
+		"eslint/no-case-declarations": "error",
+		"eslint/no-undef": "error",
+		"eslint/no-unreachable": "error",
+		"eslint/no-this-before-super": "error",
+		"eslint/no-unsafe-finally": "error",
+		"eslint/no-unsafe-optional-chaining": "error",
+		"eslint/no-unused-labels": "error",
+		"eslint/use-isnan": "error",
+		"eslint/for-direction": "error",
+		"eslint/require-yield": "error",
+		"eslint/no-eval": "error",
+		"typescript/no-namespace": "error",
+		"eslint/no-restricted-globals": ["error", "event", "error"],
+		"eslint/prefer-const": "error",
+		"eslint/default-case": "error",
+		"typescript/prefer-enum-initializers": "error",
+		"eslint/prefer-exponentiation-operator": "error",
+		// Tests nutzen `typeof import("./x")` für dynamisch importierte Module.
+		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": false }],
+		"eslint/operator-assignment": "error",
+		"eslint/one-var": ["error", "never"],
+		"eslint/no-cond-assign": "error",
+		"eslint/no-async-promise-executor": "error",
+		"eslint/no-ex-assign": "error",
+		"eslint/no-class-assign": "error",
+		"eslint/no-compare-neg-zero": "error",
+		"eslint/no-control-regex": "error",
+		"eslint/no-debugger": "error",
+		"eslint/eqeqeq": ["error", "always", { "null": "ignore" }],
+		"eslint/no-duplicate-case": "error",
+		"eslint/no-dupe-class-members": "error",
+		"eslint/no-dupe-keys": "error",
+		"eslint/no-empty": "error",
+		"eslint/no-empty-function": "error",
+		"typescript/no-extra-non-null-assertion": "error",
+		"eslint/no-fallthrough": "error",
+		"eslint/no-func-assign": "error",
+		"eslint/no-global-assign": "error",
+		"eslint/no-import-assign": "error",
+		"eslint/no-label-var": "error",
+		"eslint/no-misleading-character-class": "error",
+		"typescript/no-misused-new": "error",
+		"eslint/no-prototype-builtins": "error",
+		"eslint/no-redeclare": "error",
+		"eslint/no-self-compare": "error",
+		"eslint/no-shadow-restricted-names": "error",
+		"typescript/no-unsafe-declaration-merging": "error",
+		"eslint/no-unsafe-negation": "error",
+		"eslint/no-var": "error",
+		"eslint/no-with": "error",
+		"eslint/require-await": "error",
+		"eslint/default-case-last": "error",
+		"eslint/getter-return": "error",
+		"unicorn/no-instanceof-array": "error",
+		"typescript/prefer-namespace-keyword": "error",
+		"unicorn/no-thenable": "error",
+
+		// --- Hinweise, blockieren nicht ---
+		"eslint/no-unused-private-class-members": "warn",
+		"eslint/no-unused-vars": "warn",
+		"typescript/no-inferrable-types": "warn",
+		"typescript/no-non-null-assertion": "warn",
+		"eslint/no-param-reassign": "warn",
+		"eslint/no-else-return": "warn",
+		"eslint/no-lonely-if": "warn",
+		"unicorn/filename-case": [
+			"warn",
+			{ "cases": { "camelCase": true, "pascalCase": true, "kebabCase": true } }
+		],
+		"typescript/prefer-for-of": "warn",
+		"eslint/prefer-template": "warn",
+		"typescript/no-explicit-any": "warn",
+
+		// --- anti-slop: repoweit ---
+		"oxc/no-accumulating-spread": "error",
+		"anti-slop/require-readable-spacing": "error",
+		"anti-slop/no-array-filter-map": "error",
+		"anti-slop/no-reduce-accumulator-copy": "error",
+		"anti-slop/no-object-parameters": "error",
+		"anti-slop/no-reflect-apply": "error",
+		"anti-slop/no-reflect-get": "error",
+		"anti-slop/no-shape-in-symbol-names": "error",
+		"anti-slop/no-unknown-type-aliases": "error",
+		"anti-slop/no-widen-then-assert": "error"
+	}
+}

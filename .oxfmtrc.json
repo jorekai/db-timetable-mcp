@@ -1,0 +1,45 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"tabWidth": 2,
+	"printWidth": 100,
+	"singleQuote": false,
+	"quoteProps": "as-needed",
+	"trailingComma": "es5",
+	"semi": true,
+	"arrowParens": "always",
+	"bracketSpacing": true,
+	"embeddedLanguageFormatting": "off",
+	"ignorePatterns": [
+		"tools/oxlint/anti-slop",
+		// Erzeugt durch `npm run stations:update`
+		"src/stations/stationIndex.ts",
+		"node_modules",
+		"dist",
+		"coverage",
+		"web",
+		"worker",
+		".agent",
+		".claude",
+		"package-lock.json",
+		"**/*.d.ts",
+		"**/*.md",
+		"**/*.yaml",
+		"**/*.yml",
+		"**/*.toml",
+		"**/*.html"
+	],
+	"sortPackageJson": false,
+	"sortImports": {
+		"newlinesBetween": false,
+		"partitionByNewline": true,
+		"groups": [
+			"builtin",
+			"external",
+			["internal", "subpath"],
+			["parent", "sibling", "index"],
+			"unknown"
+		],
+		"ignoreCase": false
+	}
+}

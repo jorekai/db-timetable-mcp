@@ -1,0 +1,15 @@
+# Gitleaks-Konfiguration: mitgelieferte Regeln plus einzeln geprüfte Ausnahmen.
+# Jede Ausnahme so eng wie möglich fassen, am besten über den konkreten Wert.
+#
+# Prüfen: gitleaks git            (Historie)
+#         gitleaks git --staged   (läuft im pre-commit)
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Öffentliche Ressourcen-URIs in src/tests/server.test.ts (EVA-Nummer von Frankfurt)"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^src/tests/server\.test\.ts$''']
+regexes = ['''^(?:board|departures|arrivals)/8000105$''']
