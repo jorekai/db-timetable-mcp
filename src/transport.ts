@@ -19,7 +19,7 @@ const methodNotAllowed = {
 
 export function createHttpApp(
 	api: TimetableApi = timetableApi,
-	serverConfig: ServerConfig = config.server,
+	serverConfig: ServerConfig = config.server
 ) {
 	const app = createMcpExpressApp({
 		host: serverConfig.host,
@@ -35,33 +35,33 @@ export function createHttpApp(
 		});
 	});
 
-	app.post(
-		serverConfig.endpoint,
-		async (request: Request, response: Response) => {
-			const server = createServer(api);
-			const transport = new StreamableHTTPServerTransport({
-				sessionIdGenerator: undefined,
-				enableJsonResponse: true,
-			});
-			response.once("finish", () => {
-				void Promise.all([transport.close(), server.close()]);
-			});
+	app.post(serverConfig.endpoint, async (request: Request, response: Response) => {
+		const server = createServer(api);
 
-			try {
-				await server.connect(transport);
-				await transport.handleRequest(request, response, request.body);
-			} catch (error) {
-				logger.error("Streamable-HTTP-Anfrage fehlgeschlagen", { error });
-				if (!response.headersSent) {
-					response.status(500).json({
-						jsonrpc: "2.0",
-						error: { code: -32_603, message: "Internal server error" },
-						id: null,
-					});
-				}
+		const transport = new StreamableHTTPServerTransport({
+			sessionIdGenerator: undefined,
+			enableJsonResponse: true,
+		});
+
+		response.once("finish", () => {
+			void Promise.all([transport.close(), server.close()]);
+		});
+
+		try {
+			await server.connect(transport);
+			await transport.handleRequest(request, response, request.body);
+		} catch (error) {
+			logger.error("Streamable-HTTP-Anfrage fehlgeschlagen", { error });
+
+			if (!response.headersSent) {
+				response.status(500).json({
+					jsonrpc: "2.0",
+					error: { code: -32_603, message: "Internal server error" },
+					id: null,
+				});
 			}
-		},
-	);
+		}
+	});
 
 	app.get(serverConfig.endpoint, (_request: Request, response: Response) => {
 		response.status(405).json(methodNotAllowed);
@@ -75,10 +75,11 @@ export function createHttpApp(
 
 export async function startHttpServer(
 	api: TimetableApi = timetableApi,
-	serverConfig: ServerConfig = config.server,
+	serverConfig: ServerConfig = config.server
 ): Promise<HttpServer> {
 	const app = createHttpApp(api, serverConfig);
-	return new Promise((resolve, reject) => {
+
+	return await new Promise((resolve, reject) => {
 		const httpServer = app.listen(serverConfig.port, serverConfig.host, () => {
 			logger.info("MCP-Server lauscht über Streamable HTTP", {
 				host: serverConfig.host,
@@ -87,6 +88,7 @@ export async function startHttpServer(
 			});
 			resolve(httpServer);
 		});
+
 		httpServer.once("error", reject);
 	});
 }
@@ -95,5 +97,6 @@ export async function startStdioServer(api: TimetableApi = timetableApi) {
 	const server = createServer(api);
 	await server.connect(new StdioServerTransport());
 	logger.info("MCP-Server lauscht über stdio");
+
 	return server;
 }

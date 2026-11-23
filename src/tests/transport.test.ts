@@ -7,19 +7,20 @@ import { createHttpApp, startHttpServer } from "../transport.js";
 describe("Streamable-HTTP-Transport", () => {
 	const api = {
 		getStationBoard: vi.fn(),
-		getCurrentTimetable: vi.fn(),
-		getRecentChanges: vi.fn(),
-		getPlannedTimetable: vi.fn(),
+		getDepartures: vi.fn(),
+		getArrivals: vi.fn(),
 		findStations: vi.fn(),
 	};
+
 	const app = createHttpApp(api, {
 		name: "DB Timetable MCP Server",
-		version: "2.0.0",
+		version: "3.0.0",
 		transport: "http",
 		host: "127.0.0.1",
 		port: 0,
 		endpoint: "/mcp",
 	});
+
 	let httpServer: ReturnType<typeof app.listen>;
 	let baseUrl: string;
 
@@ -32,7 +33,7 @@ describe("Streamable-HTTP-Transport", () => {
 
 	afterEach(async () => {
 		await new Promise<void>((resolve, reject) =>
-			httpServer.close((error?: Error) => (error ? reject(error) : resolve())),
+			httpServer.close((error?: Error) => (error ? reject(error) : resolve()))
 		);
 	});
 
@@ -43,16 +44,15 @@ describe("Streamable-HTTP-Transport", () => {
 		expect(await response.json()).toEqual({
 			status: "ok",
 			server: "DB Timetable MCP Server",
-			version: "2.0.0",
+			version: "3.0.0",
 			transport: "streamable-http",
 		});
 	});
 
 	test("spricht den aktuellen stateless Streamable-HTTP-Vertrag", async () => {
 		const client = new Client({ name: "http-test", version: "1.0.0" });
-		const transport = new StreamableHTTPClientTransport(
-			new URL(`${baseUrl}/mcp`),
-		);
+
+		const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`));
 
 		await client.connect(transport);
 		const { tools } = await client.listTools();
@@ -75,17 +75,18 @@ describe("Streamable-HTTP-Transport", () => {
 	test("startet den konfigurierten HTTP-Listener auf einem freien Port", async () => {
 		const server = await startHttpServer(api, {
 			name: "DB Timetable MCP Server",
-			version: "2.0.0",
+			version: "3.0.0",
 			transport: "http",
 			host: "127.0.0.1",
 			port: 0,
 			endpoint: "/mcp",
 		});
+
 		const address = server.address() as AddressInfo;
 
 		expect(address.port).toBeGreaterThan(0);
 		await new Promise<void>((resolve, reject) =>
-			server.close((error?: Error) => (error ? reject(error) : resolve())),
+			server.close((error?: Error) => (error ? reject(error) : resolve()))
 		);
 	});
 });

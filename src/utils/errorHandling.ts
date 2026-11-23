@@ -3,16 +3,18 @@ export class AppError extends Error {
 		public message: string,
 		public code = "INTERNAL_ERROR",
 		public statusCode = 500,
-		public details?: Record<string, unknown>,
+		public details?: Record<string, unknown>
 	) {
 		super(message);
 		this.name = this.constructor.name;
+
 		// V8-only und in Edge-Runtimes (Cloudflare Workers) nicht vorhanden.
 		const captureStackTrace = (
 			Error as {
-				captureStackTrace?: (target: object, ctor?: unknown) => void;
+				captureStackTrace?: (target: AppError, ctor?: unknown) => void;
 			}
 		).captureStackTrace;
+
 		captureStackTrace?.(this, this.constructor);
 	}
 }
@@ -22,7 +24,7 @@ export class ApiError extends AppError {
 		message: string,
 		code = "API_ERROR",
 		statusCode = 500,
-		details?: Record<string, unknown>,
+		details?: Record<string, unknown>
 	) {
 		super(message, code, statusCode, details);
 	}
@@ -33,8 +35,15 @@ export class AuthenticationError extends AppError {
 		super(message, "AUTHENTICATION_ERROR", 401);
 	}
 }
+
 export class ResourceNotFoundError extends AppError {
 	constructor(message: string) {
 		super(message, "RESOURCE_NOT_FOUND", 404);
+	}
+}
+
+export class InvalidInputError extends AppError {
+	constructor(message: string) {
+		super(message, "INVALID_INPUT", 400);
 	}
 }

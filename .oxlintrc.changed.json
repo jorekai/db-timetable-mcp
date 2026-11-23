@@ -1,0 +1,19 @@
+{
+	// Strenge Stufe: gilt nur für Dateien, die ein Branch gegenüber seiner Basis
+	// ändert (pre-push und CI). Der Bestand wird so schrittweise sauber.
+	//
+	// Keine eigenständige oxlint-Konfiguration: `extends` übernimmt
+	// ignorePatterns, env und globals nicht. tools/oxlint/lint-changed.mjs mischt
+	// diese Regeln in die aufgelöste .oxlintrc.json.
+	"rules": {
+		"anti-slop/require-safety-comment-for-type-assertion": "error",
+		"anti-slop/no-chained-type-assertions": "error",
+		"anti-slop/no-unsafe-dictionary-type": "error",
+		"anti-slop/no-unknown-parameters": "error",
+		"anti-slop/no-unknown-returns": "error",
+		"anti-slop/no-known-value-widening": "error",
+		"anti-slop/no-runtime-typeof": "error",
+		"anti-slop/no-conditional-empty-object-spread": "error",
+		"anti-slop/no-module-mocking": "error"
+	}
+}

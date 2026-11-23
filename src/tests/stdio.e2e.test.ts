@@ -18,6 +18,7 @@ describe("stdio End-to-End", () => {
 			},
 			stderr: "pipe",
 		});
+
 		let stderr = "";
 		transport.stderr?.on("data", (chunk) => {
 			stderr += String(chunk);

@@ -23,5 +23,3 @@ export const config = createConfig(process.env);
 export const timetableApi = new TimetableApiClient(config.api);
 
 logger.setLevel(config.logging.level);
-
-export default config;

@@ -5,11 +5,11 @@
 [![CI](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/jorekai/db-timetable-mcp/actions/workflows/ci.yml)
 [![Smithery](https://smithery.ai/badge/@jorekai/db-timetable-mcp)](https://smithery.ai/server/@jorekai/db-timetable-mcp)
 
-Ein produktionsreifer Model Context Protocol Server für die offizielle Deutsche-Bahn-Timetables-API. Er übersetzt das kompakte DB-XML in semantisches JSON und führt Sollfahrplan und Echtzeitänderungen zu einer verlässlichen Bahnhofstafel zusammen.
+Ein produktionsreifer Model Context Protocol Server für die offizielle OpenBoards-API der Deutschen Bahn. Er übersetzt Abfahrten und Ankünfte in semantisches JSON, führt sie zu einer Bahnhofstafel zusammen und bringt für die Stationssuche ein eigenes Verzeichnis deutscher Bahnhöfe mit.
 
 ## Warum dieser Server?
 
-- **Korrekte Gleise und Zeiten:** `effective` enthält den tatsächlich anzuzeigenden Wert; `planned` und `changed` erklären Abweichungen.
+- **Korrekte Gleise und Zeiten:** `effective` enthält den tatsächlich anzuzeigenden Wert, `planned` den Sollzustand.
 - **LLM-freundlich:** Tools liefern `structuredContent`, beschreibende JSON-Schemas und ein abrufbares Datenmodell.
 - **MCP-konform:** Offizielles TypeScript-SDK, stdio für lokale Clients und stateless Streamable HTTP für Remote-Betrieb.
 - **Sicherer Betrieb:** Keine Logs auf `stdout`, lokale Bindung als Standard, Host-Allowlist, Timeouts, Non-root-Container und reproduzierbares Lockfile.
@@ -17,7 +17,7 @@ Ein produktionsreifer Model Context Protocol Server für die offizielle Deutsche
 
 ## Schnellstart
 
-Voraussetzungen: Node.js 22 oder 24 LTS sowie ein abonniertes Timetables-Produkt im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables).
+Voraussetzungen: Node.js 22, 24 oder 26 LTS sowie eine Anwendung mit Abonnement für das Produkt Open Boards im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards).
 
 ```bash
 git clone https://github.com/jorekai/db-timetable-mcp.git
@@ -80,13 +80,27 @@ Nach einer Konfigurationsänderung Claude Desktop vollständig beenden und neu s
 
 | Tool | Zweck |
 |---|---|
-| `getStationBoard` | Empfohlen: verbindet Sollfahrplan und vollständige Änderungen zu einer Live-Bahnhofstafel |
-| `getPlannedTimetable` | Statischer Sollfahrplan für EVA-Nummer, Datum und Stunde |
-| `getCurrentTimetable` | Vollständiger Änderungsbestand (`fchg`); aus Kompatibilitätsgründen so benannt |
-| `getRecentChanges` | Änderungen der letzten zwei Minuten (`rchg`) für inkrementelle Aktualisierungen |
-| `findStations` | Stationssuche nach Name, EVA-Nummer oder DS100-Code |
+| `getDepartures` | Abfahrten einer Station in einem Zeitfenster |
+| `getArrivals` | Ankünfte einer Station in einem Zeitfenster |
+| `getStationBoard` | Beide Richtungen, je Zughalt zusammengeführt |
+| `findStations` | Lokale Stationssuche nach Name, EVA-Nummer oder DS100-Code |
 
-Alle Tools akzeptieren optional `includeRawXml: true`. Die vollständige Referenz mit Beispielen steht in [docs/api.md](docs/api.md).
+Die vollständige Referenz mit Beispielen steht in [docs/api.md](docs/api.md).
+
+### Umstieg von Version 2
+
+Version 3 ersetzt die Timetables-API durch OpenBoards. Dafür ist ein Open-Boards-Abonnement nötig.
+
+| Version 2 | Version 3 |
+|---|---|
+| `getPlannedTimetable` | `getDepartures`, `getArrivals` oder `getStationBoard`; `planned` lesen |
+| `getCurrentTimetable`, `getRecentChanges` | entfallen; Tafel erneut abrufen |
+| `date` und `hour` | `startTime` und `durationMinutes` |
+| `includeRawXml`, `rawXml` | entfallen |
+| `changed` | entfällt; `effective` lesen |
+| `ds100`, `metaStations` in `findStations` | `ds100Codes`, `evaNumbers` |
+
+Zeigt `DB_TIMETABLE_BASE_URL` noch auf die Timetables-API, bricht der Server mit einer Erklärung ab.
 
 ## Datenmodell
 
@@ -95,8 +109,8 @@ Ein Ereignis für Ankunft oder Abfahrt sieht verkürzt so aus:
 ```json
 {
   "planned": { "time": { "local": "2026-07-17T10:20" }, "platform": "8" },
-  "changed": { "time": { "local": "2026-07-17T10:27" }, "platform": "10" },
   "effective": { "time": { "local": "2026-07-17T10:27" }, "platform": "10" },
+  "timeType": "PREVIEW",
   "delayMinutes": 7,
   "platformChanged": true,
   "isCancelled": false
@@ -132,7 +146,7 @@ Compose bindet den Port absichtlich nur an Loopback, startet als nicht privilegi
 |---|---:|---|
 | `DB_TIMETABLE_CLIENT_ID` | – | DB-Client-ID, für API-Aufrufe erforderlich |
 | `DB_TIMETABLE_CLIENT_SECRET` | – | DB-API-Key, für API-Aufrufe erforderlich |
-| `DB_TIMETABLE_BASE_URL` | offizielle v1-URL | Alternative Basis-URL, primär für Tests |
+| `DB_TIMETABLE_BASE_URL` | OpenBoards-v1-URL | Alternative Basis-URL, primär für Tests |
 | `DB_TIMETABLE_TIMEOUT_MS` | `15000` | Request-Timeout zwischen 1000 und 120000 ms |
 | `MCP_TRANSPORT` | `stdio` | `stdio` oder `http` |
 | `HOST` | `127.0.0.1` | HTTP-Bindeadresse |
@@ -151,6 +165,7 @@ npm run dev          # stdio mit Watch-Modus
 npm run dev:http     # Streamable HTTP mit Watch-Modus
 npm run check        # Lint, Typen, Tests und Build
 npm run test:coverage
+npm run stations:update   # Bahnhofsverzeichnis aus dem aktuellen NeTEx-Export neu bauen
 ```
 
 Weitere Dokumente:
@@ -175,14 +190,16 @@ Die Datei muss im Repository-Root neben `package.json` liegen. Bei einem anderen
 
 **401/403 von der DB API**
 
-Prüfen, ob Client-ID und API-Key zusammengehören und die Anwendung das Produkt Timetables abonniert hat.
+Prüfen, ob Client-ID und API-Key zusammengehören und die Anwendung das Produkt Open Boards abonniert hat. Ein Abonnement des alten Produkts Timetables genügt nicht. Die Fehlermeldung gibt den Grund des API-Gateways wieder, z. B. `Cannot find valid subscription`.
 
 **Falsches Gleis**
 
-`getStationBoard` verwenden und `effective.platform` lesen. `planned.platform` ist ausdrücklich das Sollgleis; `changed.platform` ist nur gesetzt, wenn die DB eine Änderung gemeldet hat.
+`effective.platform` lesen. `planned.platform` ist ausdrücklich das Sollgleis. `platformChanged` sagt, ob beide voneinander abweichen.
 
 ## Datenquelle und Lizenz
 
-Die Fahrplandaten stammen von der Deutschen Bahn und werden über die [Timetables API 1.0.274](https://developers.deutschebahn.com/db-api-marketplace/apis/product/timetables/api/160160) bereitgestellt. Laut DB API Marketplace stehen die Daten unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); die Namensnennung der Deutschen Bahn ist bei Nutzung der Daten erforderlich. Der Marketplace nennt derzeit ein Limit von 60 Aufrufen pro Minute.
+Die Fahrplandaten stammen von der Deutschen Bahn und werden über die [OpenBoards-API](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards) bereitgestellt. Der Plan Free erlaubt 10 Anfragen pro Sekunde (Stand November 2026). Anders als bei der Timetables API nennt die Produktseite nicht CC BY 4.0. Sie verweist auf die [Nutzungsbedingungen der Web-Bahnhofstafel](https://db.info/bahnhof-de/nutzungsbedingungen_wbt.html), die gewerbliche Nutzung und Weitergabe einschränken. Vor dem Betrieb eines öffentlichen Dienstes lesen.
+
+Das Bahnhofsverzeichnis in `src/stations/stationIndex.ts` ist aus dem [NeTEx-Export von OpenStation](https://www.bahnhof.de/daten/netex) der DB InfraGO abgeleitet, veröffentlicht über Mobilithek. `dataAsOf` nennt in jedem Ergebnis von `findStations` den Stand. Enthalten sind Bahnhöfe der DB InfraGO; Stationen anderer Betreiber können fehlen. Eine bekannte EVA-Nummer lässt sich trotzdem abfragen.
 
 Der MCP-Server selbst steht unter der [MIT-Lizenz](LICENSE.md).

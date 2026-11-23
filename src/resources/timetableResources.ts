@@ -1,34 +1,53 @@
-import {
-	type McpServer,
-	ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { TimetableApi } from "../api/timetableApi.js";
+import { InvalidInputError } from "../utils/errorHandling.js";
 
 const DATA_MODEL = {
 	event: {
 		effective:
-			"Diese Werte für die tatsächliche Anzeige verwenden. Änderungen überschreiben hier jeweils die entsprechenden Sollwerte.",
-		planned: "Ursprüngliche Sollzeit, Sollgleis und geplanter Fahrtweg der DB.",
-		changed:
-			"Von der DB gemeldete Änderung an Zeit, Gleis, Status oder Fahrtweg; nicht gesetzte Felder bleiben wie geplant.",
+			"Diese Werte für die tatsächliche Anzeige verwenden: aktuelle Zeit und aktuelles Gleis.",
+		planned: "Ursprüngliche Sollzeit und Sollgleis der DB.",
+		timeType:
+			"Herkunft von effective.time: SCHEDULE = Sollzeit ohne Echtzeit, PREVIEW = Prognose, REAL = bereits eingetreten.",
 		delayMinutes:
-			"Differenz zwischen geänderter und geplanter lokaler Zeit in Minuten.",
-		platformChanged:
-			"True, wenn sich das geänderte Gleis vom geplanten Gleis unterscheidet.",
-		isCancelled:
-			"True, wenn die Ankunft oder Abfahrt als ausgefallen markiert ist.",
+			"Differenz zwischen effective.time und planned.time in Minuten, auf ganze Minuten gerundet.",
+		platformChanged: "True, wenn sich das aktuelle Gleis vom Sollgleis unterscheidet.",
+		isCancelled: "True, wenn die Ankunft oder Abfahrt ausfällt.",
+		isAdditional:
+			"True bei einem zusätzlichen Halt. Zusammen mit isCancelled ist es ein zurückgenommener Zusatzhalt.",
+		noPassengerChange: "True, wenn Ein- oder Aussteigen nicht möglich ist.",
+		via: "Auswahl der Unterwegshalte (Ankunft: frühere, Abfahrt: kommende). Nicht vollständig: ein fehlender Halt heißt nicht, dass der Zug dort nicht hält.",
+		messages: "Meldungen zum Halt: disruption, cause, quality, note oder attribute.",
+	},
+	stop: {
+		arrival:
+			"Fehlt, wenn die Fahrt hier beginnt oder die Ankunft außerhalb des Zeitfensters liegt.",
+		departure:
+			"Fehlt, wenn die Fahrt hier endet oder die Abfahrt außerhalb des Zeitfensters liegt.",
+		evaNo:
+			"EVA-Nummer des konkreten Halts; kann bei einbezogenen Nachbarhalten von der Anfrage abweichen.",
+	},
+	board: {
+		truncatedTransportTypes:
+			"Nicht leer, wenn Einträge fehlen. Dann das Zeitfenster verkürzen oder transportTypes einschränken.",
+		consideredStopPlaces: "Alle Haltestellen, die in die Tafel eingeflossen sind.",
 	},
 	timestamp: {
-		raw: "Unveränderter DB-Zeitstempel im Format YYMMDDHHmm.",
-		local: "Lesbare lokale Zeit ohne erfundenen UTC-Offset.",
+		raw: "Unveränderter ISO-8601-Zeitstempel.",
+		local: "Lesbare Ortszeit, minutengenau.",
 		timezone: "IANA-Zeitzone Europe/Berlin.",
 	},
 	usage:
-		"Für eine Bahnhofstafel getStationBoard verwenden. getCurrentTimetable enthält nur den vollständigen Änderungsbestand, getRecentChanges lediglich ein zweiminütiges Delta.",
+		"Erst findStations für die EVA-Nummer, dann getDepartures, getArrivals oder für beides getStationBoard. Nur Schienenverkehr an deutschen Stationen.",
 };
 
 function variable(value: string | string[]): string {
-	return Array.isArray(value) ? value[0] : value;
+	// Das SDK liefert URI-Variablen prozentkodiert.
+	try {
+		return decodeURIComponent(Array.isArray(value) ? value[0] : value);
+	} catch {
+		throw new InvalidInputError("Die Ressourcen-URI ist fehlerhaft kodiert");
+	}
 }
 
 function jsonResource(uri: URL, value: unknown) {
@@ -43,74 +62,53 @@ function jsonResource(uri: URL, value: unknown) {
 	};
 }
 
-export function registerTimetableResources(
-	server: McpServer,
-	api: TimetableApi,
-): void {
+export function registerTimetableResources(server: McpServer, api: TimetableApi): void {
 	server.registerResource(
 		"data-model",
 		"db-timetable://docs/data-model",
 		{
 			title: "DB Timetable Datenmodell",
-			description:
-				"Semantik der strukturierten Zeiten, Gleise und Echtzeitänderungen",
+			description: "Semantik der strukturierten Zeiten, Gleise und Echtzeitänderungen",
 			mimeType: "application/json",
 		},
-		(uri) => jsonResource(uri, DATA_MODEL),
+		(uri) => jsonResource(uri, DATA_MODEL)
 	);
 
-	server.registerResource(
-		"current-timetable",
-		new ResourceTemplate("db-api:timetable/current/{evaNo}", {
-			list: undefined,
-		}),
+	const boards = [
 		{
-			title: "Vollständige Fahrplanänderungen",
-			description:
-				"Strukturierter vollständiger Änderungsbestand einer Station",
-			mimeType: "application/json",
+			name: "board",
+			title: "Bahnhofstafel",
+			description: "Ankünfte und Abfahrten der nächsten 60 Minuten",
+			load: (evaNo: string) => api.getStationBoard({ evaNo }),
 		},
-		async (uri, { evaNo }) =>
-			jsonResource(
-				uri,
-				await api.getCurrentTimetable({ evaNo: variable(evaNo) }),
-			),
-	);
+		{
+			name: "departures",
+			title: "Abfahrten",
+			description: "Abfahrten der nächsten 60 Minuten",
+			load: (evaNo: string) => api.getDepartures({ evaNo }),
+		},
+		{
+			name: "arrivals",
+			title: "Ankünfte",
+			description: "Ankünfte der nächsten 60 Minuten",
+			load: (evaNo: string) => api.getArrivals({ evaNo }),
+		},
+	];
 
-	server.registerResource(
-		"recent-changes",
-		new ResourceTemplate("db-api:timetable/changes/{evaNo}", {
-			list: undefined,
-		}),
-		{
-			title: "Jüngste Fahrplanänderungen",
-			description: "Strukturiertes zweiminütiges Änderungsdelta einer Station",
-			mimeType: "application/json",
-		},
-		async (uri, { evaNo }) =>
-			jsonResource(uri, await api.getRecentChanges({ evaNo: variable(evaNo) })),
-	);
-
-	server.registerResource(
-		"planned-timetable",
-		new ResourceTemplate("db-api:timetable/planned/{evaNo}/{date}/{hour}", {
-			list: undefined,
-		}),
-		{
-			title: "Geplanter Fahrplan",
-			description: "Strukturierter Sollfahrplan einer Stationsstunde",
-			mimeType: "application/json",
-		},
-		async (uri, { evaNo, date, hour }) =>
-			jsonResource(
-				uri,
-				await api.getPlannedTimetable({
-					evaNo: variable(evaNo),
-					date: variable(date),
-					hour: variable(hour),
-				}),
-			),
-	);
+	for (const board of boards) {
+		server.registerResource(
+			board.name,
+			new ResourceTemplate(`db-api:${board.name}/{evaNo}`, {
+				list: undefined,
+			}),
+			{
+				title: board.title,
+				description: board.description,
+				mimeType: "application/json",
+			},
+			async (uri, { evaNo }) => jsonResource(uri, await board.load(variable(evaNo)))
+		);
+	}
 
 	server.registerResource(
 		"station-search",
@@ -121,6 +119,6 @@ export function registerTimetableResources(
 			mimeType: "application/json",
 		},
 		async (uri, { pattern }) =>
-			jsonResource(uri, await api.findStations({ pattern: variable(pattern) })),
+			jsonResource(uri, await api.findStations({ pattern: variable(pattern) }))
 	);
 }

@@ -1,10 +1,33 @@
 {
 	"name": "db-timetable-mcp",
-	"version": "2.0.0",
+	"version": "3.0.0",
 	"description": "MCP server for structured Deutsche Bahn station timetable data",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./server": {
+			"types": "./dist/server.d.ts",
+			"import": "./dist/server.js"
+		},
+		"./serverInfo": {
+			"types": "./dist/serverInfo.d.ts",
+			"import": "./dist/serverInfo.js"
+		},
+		"./api/timetableApi": {
+			"types": "./dist/api/timetableApi.d.ts",
+			"import": "./dist/api/timetableApi.js"
+		},
+		"./utils/errorHandling": {
+			"types": "./dist/utils/errorHandling.d.ts",
+			"import": "./dist/utils/errorHandling.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"bin": {
 		"db-timetable-mcp": "dist/index.js"
 	},
@@ -21,16 +44,18 @@
 		"start": "node dist/index.js",
 		"dev": "tsx watch src/index.ts",
 		"dev:http": "MCP_TRANSPORT=http tsx watch src/index.ts",
-		"dev:worker": "wrangler dev --config worker/wrangler.toml --port 8791",
-		"deploy:worker": "wrangler deploy --config worker/wrangler.toml",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"lint": "biome check .",
-		"lint:fix": "biome check --write .",
-		"typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
+		"lint": "oxlint --quiet . && oxfmt --check .",
+		"lint:fix": "oxlint --fix --quiet . && oxfmt .",
+		"lint:changed": "node tools/oxlint/lint-changed.mjs",
+		"knip": "knip --no-progress",
+		"typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
+		"stations:update": "tsx scripts/updateStations.ts",
 		"check": "npm run lint && npm run typecheck && npm test && npm run build",
-		"prepublishOnly": "npm run check"
+		"prepublishOnly": "npm run check",
+		"prepare": "npm run build && node scripts/install-git-hooks.mjs"
 	},
 	"keywords": [
 		"mcp",
@@ -53,22 +78,23 @@
 		"node": ">=22"
 	},
 	"dependencies": {
-		"@cfworker/json-schema": "^4.1.1",
-		"@modelcontextprotocol/sdk": "^1.32.0",
+		"@modelcontextprotocol/sdk": "^1.32.2",
 		"dotenv": "^17.4.2",
 		"express": "^5.2.1",
-		"fast-xml-parser": "^5.10.1",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.4",
-		"@cloudflare/workers-types": "^5.20260911.1",
+		"@oxlint/plugins": "1.94.0",
 		"@types/express": "^5.0.6",
-		"@types/node": "^24.10.0",
-		"@vitest/coverage-v8": "^4.1.10",
-		"tsx": "^4.21.0",
+		"@types/node": "^26.6.6",
+		"@vitest/coverage-v8": "^5.1.1",
+		"fast-xml-parser": "^5.12.1",
+		"knip": "^6.48.0",
+		"lefthook": "^2.2.2",
+		"oxfmt": "0.79.0",
+		"oxlint": "1.94.0",
+		"tsx": "^4.23.15",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10",
-		"wrangler": "^4.131.0"
+		"vitest": "^5.1.1"
 	}
 }

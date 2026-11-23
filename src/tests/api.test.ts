@@ -1,23 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { TimetableApiClient } from "../api/timetableApi.js";
-import {
-	AuthenticationError,
-	ResourceNotFoundError,
-} from "../utils/errorHandling.js";
+import { board, entry } from "./fixtures.js";
 
-const timetableXml = `<timetable station="Frankfurt(Main)Hbf" eva="8000105"><s id="trip-1" eva="8000105"><tl c="ICE" n="123" o="80"/><dp pt="2607171020" pp="8"/></s></timetable>`;
-const changesXml = `<timetable station="Frankfurt(Main)Hbf" eva="8000105"><s id="trip-1" eva="8000105"><dp ct="2607171027" cp="10"/></s></timetable>`;
-const stationsXml = `<stations><station eva="8000105" ds100="FF" name="Frankfurt(Main)Hbf" p="1|2"/></stations>`;
-
-function response(body: string, status = 200): Response {
-	return new Response(body, {
-		status,
-		statusText: status === 200 ? "OK" : "Error",
-	});
-}
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 describe("TimetableApiClient", () => {
 	const fetchMock = vi.fn<typeof fetch>();
+
 	const createClient = (credentials = true) =>
 		new TimetableApiClient(
 			{
@@ -27,98 +16,293 @@ describe("TimetableApiClient", () => {
 				timeoutMs: 5_000,
 			},
 			fetchMock,
-			() => new Date("2026-07-17T08:00:00.000Z"),
+			() => new Date("2026-07-17T08:00:00.000Z")
 		);
 
-	beforeEach(() => fetchMock.mockReset());
+	const body = (call = 0) => JSON.parse(String(fetchMock.mock.calls[call][1]?.body));
 
-	test("liefert strukturierte Fahrplandaten mit Herkunftsmetadaten", async () => {
-		fetchMock.mockResolvedValue(response(timetableXml));
+	beforeEach(() => {
+		fetchMock.mockReset();
+	});
 
-		const result = await createClient().getPlannedTimetable({
-			evaNo: "8000105",
-			date: "260717",
-			hour: "10",
-		});
+	test("fragt Abfahrten mit Zugangsdaten, Zeitfenster und Vorgaben ab", async () => {
+		fetchMock.mockResolvedValue(json(board("departures", [entry()])));
 
-		expect(result).toMatchObject({
-			source: "Deutsche Bahn Timetables API",
-			retrievedAt: "2026-07-17T08:00:00.000Z",
-			endpoint: "/plan/8000105/260717/10",
-			data: { station: { evaNo: "8000105" } },
-		});
+		const result = await createClient().getDepartures({ evaNo: "8000105" });
+
 		expect(fetchMock).toHaveBeenCalledWith(
-			"https://db.test/v1/plan/8000105/260717/10",
+			"https://db.test/v1/departures",
 			expect.objectContaining({
+				method: "POST",
 				headers: expect.objectContaining({
-					"DB-Client-Id": "client-id",
+					"DB-Client-ID": "client-id",
 					"DB-Api-Key": "client-secret",
-					Accept: "application/xml",
+					"Content-Type": "application/json",
 				}),
-			}),
+			})
 		);
+		expect(body()).toEqual({
+			stopPlaceOrStation: { evaNumbers: ["8000105"] },
+			timeWindow: {
+				timeStart: "2026-07-17T08:00:00.000Z",
+				timeEnd: "2026-07-17T09:00:00.000Z",
+			},
+			maxEntriesPerTransportType: 50,
+			languages: ["deu"],
+		});
+		expect(result).toMatchObject({
+			source: "Deutsche Bahn OpenBoards API",
+			retrievedAt: "2026-07-17T08:00:00.000Z",
+			endpoint: "/departures",
+			data: {
+				station: { evaNo: "8000105", name: "Frankfurt (Main) Hbf" },
+				window: {
+					start: { local: "2026-07-17T10:00" },
+					end: { local: "2026-07-17T11:00" },
+				},
+				consideredStopPlaces: [
+					{ evaNo: "8000105", name: "Frankfurt (Main) Hbf" },
+					{ evaNo: "8098105", name: "Frankfurt Hbf (tief)" },
+				],
+				truncatedTransportTypes: [],
+			},
+		});
 	});
 
-	test("fügt Roh-XML nur auf ausdrücklichen Wunsch bei", async () => {
-		fetchMock.mockResolvedValue(response(timetableXml));
+	test("reicht alle Filter an OpenBoards weiter", async () => {
+		fetchMock.mockResolvedValue(json(board("arrivals", [])));
 
-		const result = await createClient().getCurrentTimetable({
+		await createClient().getArrivals({
 			evaNo: "8000105",
-			includeRawXml: true,
+			startTime: "2026-12-01T10:00",
+			durationMinutes: 480,
+			platforms: ["7"],
+			transportTypes: ["CITY_TRAIN"],
+			includeNearbyStops: false,
+			maxEntriesPerTransportType: 5,
 		});
 
-		expect(result.rawXml).toBe(timetableXml);
+		expect(fetchMock.mock.calls[0][0]).toBe("https://db.test/v1/arrivals");
+		expect(body()).toMatchObject({
+			stopPlaceOrStation: {
+				evaNumbers: ["8000105"],
+				platforms: ["7"],
+				boardConfigurations: ["NONE"],
+			},
+			timeWindow: {
+				timeStart: "2026-12-01T09:00:00.000Z",
+				timeEnd: "2026-12-01T17:00:00.000Z",
+			},
+			transportTypes: ["CITY_TRAIN"],
+			maxEntriesPerTransportType: 5,
+		});
 	});
 
-	test("kodiert Suchmuster als einzelnes URL-Segment", async () => {
-		fetchMock.mockResolvedValue(response(stationsXml));
-
-		const result = await createClient().findStations({
-			pattern: "Frankfurt Hbf/Flughafen",
-		});
-
-		expect(fetchMock.mock.calls[0][0]).toBe(
-			"https://db.test/v1/station/Frankfurt%20Hbf%2FFlughafen",
+	test("führt Ankünfte und Abfahrten zur Bahnhofstafel zusammen", async () => {
+		fetchMock.mockImplementation(async (url) =>
+			String(url).endsWith("/arrivals")
+				? json(board("arrivals", [entry({ timeSchedule: "2026-07-17T10:15:00+02:00" })]))
+				: json(
+						board("departures", [entry()], {
+							meta: { truncatedTransportTypes: ["REGIONAL_TRAIN"] },
+						})
+					)
 		);
-		expect(result.data[0].platforms).toEqual(["1", "2"]);
+
+		const result = await createClient().getStationBoard({ evaNo: "8000105" });
+
+		expect(result.endpoint).toBe("/arrivals + /departures");
+		expect(result.data.stops).toHaveLength(1);
+		expect(result.data.stops[0]).toMatchObject({
+			arrival: { delayMinutes: 12 },
+			departure: { delayMinutes: 7, effective: { platform: "10" } },
+		});
+		expect(result.data.truncatedTransportTypes).toEqual(["REGIONAL_TRAIN"]);
 	});
 
-	test("verbindet Plan und Echtzeitänderungen zu einer korrekten Bahnhofstafel", async () => {
-		fetchMock
-			.mockResolvedValueOnce(response(timetableXml))
-			.mockResolvedValueOnce(response(changesXml));
+	test("bricht die Bahnhofstafel ab, wenn eine Hälfte fehlt", async () => {
+		fetchMock.mockImplementation(async (url) =>
+			String(url).endsWith("/arrivals") ? json(board("arrivals", [])) : json({}, 500)
+		);
 
-		const result = await createClient().getStationBoard({
-			evaNo: "8000105",
-			date: "260717",
-			hour: "10",
-			includeRawXml: true,
-		});
-
-		expect(result.data.stops[0].departure).toMatchObject({
-			planned: { platform: "8" },
-			changed: { platform: "10" },
-			effective: { platform: "10" },
-			delayMinutes: 7,
-		});
-		expect(result.rawXml).toEqual({
-			planned: timetableXml,
-			changes: changesXml,
+		await expect(createClient().getStationBoard({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "API_ERROR",
 		});
 	});
 
-	test("meldet fehlende Credentials vor einem Netzwerkaufruf", async () => {
-		await expect(
-			createClient(false).getRecentChanges({ evaNo: "8000105" }),
-		).rejects.toBeInstanceOf(AuthenticationError);
+	test("meldet fehlende Zugangsdaten vor einem Netzwerkaufruf", async () => {
+		await expect(createClient(false).getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "AUTHENTICATION_ERROR",
+		});
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	test("übersetzt 404-Antworten in einen fachlichen Fehler", async () => {
-		fetchMock.mockResolvedValue(response("not found", 404));
+	test.each([
+		[401, "AUTHENTICATION_ERROR"],
+		[403, "AUTHENTICATION_ERROR"],
+		[404, "RESOURCE_NOT_FOUND"],
+		[429, "API_RATE_LIMIT"],
+		[400, "API_ERROR"],
+		[500, "API_ERROR"],
+	])("übersetzt HTTP %i in %s", async (status, code) => {
+		fetchMock.mockResolvedValue(json({}, status));
 
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code,
+		});
+	});
+
+	test("nennt bei 401 den Grund des API-Gateways", async () => {
+		fetchMock.mockResolvedValue(
+			json(
+				{
+					httpCode: "401",
+					httpMessage: "Unauthorized",
+					moreInformation: "Cannot find valid subscription for the incoming API request.",
+				},
+				401
+			)
+		);
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(
+			"Cannot find valid subscription"
+		);
+	});
+
+	test("nennt den Fehlertext der DB, verträgt aber auch Text ohne JSON", async () => {
+		fetchMock.mockResolvedValueOnce(
+			json({ title: "Bad Request", detail: "evaNumber unknown" }, 400)
+		);
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(
+			"HTTP 400 (Bad Request: evaNumber unknown)"
+		);
+
+		fetchMock.mockResolvedValueOnce(new Response("<html>", { status: 502 }));
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toThrow(/HTTP 502$/);
+	});
+
+	test("liest eine leere Tafel ohne Liste als null Halte", async () => {
+		// Form der echten API: ohne Treffer fehlen departures und stopPlaces.
+		const empty = {
+			messages: {},
+			meta: { consideredStopPlaces: ["270241", "8000448"] },
+			stations: [
+				{
+					stada: "31",
+					localizedNames: [{ language: "deu", name: "Ahrweiler" }],
+				},
+			],
+		};
+
+		fetchMock.mockImplementation(async () => new Response(JSON.stringify(empty)));
+
+		for (const method of ["getDepartures", "getArrivals", "getStationBoard"] as const) {
+			const result = await createClient()[method]({ evaNo: "8000448" });
+			expect(result.data.stops).toEqual([]);
+			expect(result.data.station).toEqual({
+				evaNo: "8000448",
+				name: "Ahrweiler",
+			});
+		}
+	});
+
+	// Issue 28: getPlannedTimetable verwarf früher jeden Halt ohne Echtzeitdaten.
+	test("liefert für ein künftiges Zeitfenster jeden Halt ohne Echtzeitdaten", async () => {
+		const planned = ["08:05", "08:20", "08:58"].map((time, index) =>
+			entry({
+				journeyId: `journey-${index}`,
+				evaNumber: "8000760",
+				time: `2026-07-18T${time}:00+02:00`,
+				timeSchedule: `2026-07-18T${time}:00+02:00`,
+				timeType: "SCHEDULE",
+				platform: undefined,
+				platformSchedule: undefined,
+				messages: undefined,
+				journeyInfo: undefined,
+			})
+		);
+
+		fetchMock.mockImplementation(async (url) =>
+			json(
+				String(url).endsWith("/arrivals")
+					? board("arrivals", planned)
+					: board("departures", planned)
+			)
+		);
+
+		for (const method of ["getDepartures", "getArrivals", "getStationBoard"] as const) {
+			const result = await createClient()[method]({
+				evaNo: "8000760",
+				startTime: "2026-07-18T08:00",
+			});
+
+			expect(result.data.stops.map((stop) => stop.journeyId)).toEqual([
+				"journey-0",
+				"journey-1",
+				"journey-2",
+			]);
+		}
+	});
+
+	test("rät bei mehreren Stationen keinen Namen", async () => {
+		fetchMock.mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					meta: { consideredStopPlaces: [] },
+					stations: ["A", "B"].map((name) => ({
+						localizedNames: [{ language: "deu", name }],
+					})),
+				})
+			)
+		);
+		const { data } = await createClient().getDepartures({ evaNo: "8000448" });
+		expect(data.station).toEqual({ evaNo: "8000448" });
+	});
+
+	test.each([
+		["Liste mit falschem Typ", '{"departures":{},"meta":{"consideredStopPlaces":[]}}'],
+		["kein JSON", "<html>"],
+		["null", "null"],
+		["fehlende Liste", "{}"],
+		["ungültige Zeit", JSON.stringify(board("departures", [entry({ time: "kaputt" })]))],
+	])("weist unerwartete Antworten zurück: %s", async (_name, text) => {
+		fetchMock.mockResolvedValue(new Response(text));
+
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code: "API_INVALID_RESPONSE",
+		});
+	});
+
+	test.each([
+		["TimeoutError", "API_TIMEOUT"],
+		["TypeError", "API_UNAVAILABLE"],
+	])("übersetzt %s in %s", async (name, code) => {
+		fetchMock.mockRejectedValue(Object.assign(new Error("x"), { name }));
+
+		await expect(createClient().getDepartures({ evaNo: "8000105" })).rejects.toMatchObject({
+			code,
+		});
+	});
+
+	test.each([
+		{ startTime: "2026-02-31T10:00" },
+		{ durationMinutes: 0 },
+		{ durationMinutes: 481 },
+		{ durationMinutes: Number.NaN },
+	])("weist ungültige Zeitfenster ab: %o", async (params) => {
 		await expect(
-			createClient().getCurrentTimetable({ evaNo: "0000000" }),
-		).rejects.toBeInstanceOf(ResourceNotFoundError);
+			createClient().getDepartures({ evaNo: "8000105", ...params })
+		).rejects.toMatchObject({ code: "INVALID_INPUT" });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test("sucht Bahnhöfe ohne Zugangsdaten und ohne Netzwerk", async () => {
+		const result = await createClient(false).findStations({ pattern: "FF" });
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			source: "DB InfraGO OpenStation (NeTEx)",
+			dataAsOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+			data: { stations: [{ evaNo: "8000105" }] },
+		});
 	});
 });

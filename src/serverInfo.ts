@@ -6,5 +6,5 @@
  */
 export const SERVER_INFO = {
 	name: "DB Timetable MCP Server",
-	version: "2.0.0",
+	version: "3.0.0",
 } as const;

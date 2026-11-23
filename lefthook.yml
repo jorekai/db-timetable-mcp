@@ -1,0 +1,75 @@
+# Git-Hooks, siehe https://github.com/evilmartians/lefthook
+#
+# Einen Lauf übergehen: `git commit --no-verify` / `git push --no-verify`.
+# Alle Hooks aus: `LEFTHOOK=0 git ...`.
+# Nach jeder Änderung an dieser Datei: `npx lefthook install`.
+
+pre-commit:
+  # Nacheinander: oxlint und oxfmt schreiben in die Dateien und legen sie zurück
+  # in den Index, gitleaks liest denselben Index.
+  parallel: false
+  commands:
+    oxlint:
+      priority: 1
+      glob: "*.{ts,tsx,js,jsx,mjs,mts,cjs,cts}"
+      run: node_modules/.bin/oxlint --fix --quiet --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+      fail_text: "oxlint hat Befunde, die es nicht selbst beheben kann (siehe oben)."
+    oxfmt:
+      # Nach oxlint, damit dessen Autofixes formatiert im Commit landen.
+      priority: 2
+      glob: "*.{ts,tsx,js,jsx,mjs,mts,cjs,cts,json,jsonc,css}"
+      run: node_modules/.bin/oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    gitleaks:
+      priority: 3
+      run: |
+        if ! command -v gitleaks >/dev/null 2>&1; then
+          echo "gitleaks nicht gefunden. Installieren mit: brew install gitleaks"
+          exit 0
+        fi
+        gitleaks git --staged --redact -v
+      fail_text: "gitleaks hat ein Geheimnis in den gestagten Änderungen gefunden. Commit abgebrochen."
+
+pre-push:
+  parallel: false
+  commands:
+    kein-direkter-master-push:
+      priority: 1
+      # Für master ist keine Branch Protection gesetzt. Dieser Riegel fängt das
+      # Versehen. Gelesen werden die tatsächlich gepushten Refs von stdin
+      # (<lokal> <sha> <remote> <sha>); gelöschte Branches betrifft er nicht.
+      use_stdin: true
+      run: |
+        while read -r _ _ remote_ref _; do
+          if [ "$remote_ref" = "refs/heads/master" ]; then
+            echo "Dieser Push ginge direkt auf master."
+            echo "Änderungen gehören über einen Pull Request, nur dort laufen alle Checks."
+            echo "Wenn es wirklich sein muss: git push --no-verify"
+            exit 1
+          fi
+        done
+      fail_text: "Direkter Push auf master abgelehnt."
+    typecheck:
+      priority: 2
+      run: npm run --silent typecheck
+      fail_text: "tsc meldet Typfehler. Die CI meldet denselben Fehler."
+    lint:
+      priority: 3
+      # Zweite Reihe hinter pre-commit, gleicher Umfang wie die CI.
+      run: npm run --silent lint && npm run --silent lint:changed
+      fail_text: "oxlint/oxfmt melden Befunde. Beheben mit: npm run lint:fix"
+    gitleaks:
+      priority: 4
+      run: |
+        if ! command -v gitleaks >/dev/null 2>&1; then
+          echo "gitleaks nicht gefunden. Installieren mit: brew install gitleaks"
+          exit 0
+        fi
+        base=$(git rev-parse --verify --quiet '@{u}' || git rev-parse --verify --quiet origin/master)
+        if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+          echo "Keine ausgehenden Commits zu prüfen."
+          exit 0
+        fi
+        gitleaks git --redact --log-opts="$base..HEAD" -v
+      fail_text: "gitleaks hat ein Geheimnis in den ausgehenden Commits gefunden. Push abgebrochen."

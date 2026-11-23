@@ -5,15 +5,15 @@ import { registerTimetableResources } from "./resources/index.js";
 import { SERVER_INFO } from "./serverInfo.js";
 import { registerTimetableTools } from "./tools/index.js";
 
+const INSTRUCTIONS =
+	"Ermittle die EVA-Nummer mit findStations und rufe dann getDepartures, getArrivals oder für beide Richtungen getStationBoard auf. In Ereignissen sind effective.time und effective.platform die anzuzeigenden Werte, planned enthält den Sollzustand. via ist nur eine Auswahl der Unterwegshalte. Ist truncatedTransportTypes nicht leer, fehlen Einträge.";
+
 /**
  * Obergrenze für Array-Elemente und Objekt-Schlüssel in den Argumenten eines
  * `tools/call`. Die Werkzeuge nehmen nur wenige skalare Felder entgegen; die
  * Grenze hält die Schema-Validierung bei übergroßen Eingaben billig.
  */
 export const MAX_TOOL_INPUT_ELEMENTS = 1_000;
-
-const INSTRUCTIONS =
-	"Nutze getStationBoard für eine korrekte Bahnhofstafel. In Ereignissen sind effective.time, effective.platform und effective.path die anzuzeigenden Werte. planned enthält den Sollzustand, changed ausschließlich gemeldete Abweichungen. getCurrentTimetable ist der vollständige Änderungsbestand und keine eigenständige Bahnhofstafel.";
 
 export interface CreateServerOptions {
 	/** Name und Version, die Clients gemeldet bekommen. */
@@ -32,16 +32,15 @@ export interface CreateServerOptions {
  * Ohne Node- und Umgebungsabhängigkeiten: der npm-Einstieg (src/env.ts) und
  * der Cloudflare Worker (worker/src/mcp.ts) teilen sich diese Funktion.
  */
-export function createServer(
-	api: TimetableApi,
-	options: CreateServerOptions = {},
-): McpServer {
+export function createServer(api: TimetableApi, options: CreateServerOptions = {}): McpServer {
 	const server = new McpServer(options.serverInfo ?? SERVER_INFO, {
 		instructions: INSTRUCTIONS,
-		jsonSchemaValidator: options.jsonSchemaValidator,
 		maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
+		jsonSchemaValidator: options.jsonSchemaValidator,
 	});
+
 	registerTimetableTools(server, api);
 	registerTimetableResources(server, api);
+
 	return server;
 }

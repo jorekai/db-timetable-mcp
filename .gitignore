@@ -9,6 +9,9 @@ yarn-debug.log
 dist/
 build/
 *.tsbuildinfo
+# Reste der ausgelagerten Next-App, solange sie lokal liegen
+.next/
+next-env.d.ts
 
 # Umgebungsvariablen
 .env
@@ -22,6 +25,9 @@ build/
 .dev.vars.*
 !.dev.vars.example
 .wrangler/
+
+# Vercel: lokaler Projekt-Link (Root Directory ist web/)
+.vercel/
 
 # Logs
 logs/
@@ -62,3 +68,6 @@ Thumbs.db
 .agent/
 .claude/
 GEMINI.md
+
+# Erzeugt von tools/oxlint/lint-changed.mjs
+.oxlintrc.changed.generated.json

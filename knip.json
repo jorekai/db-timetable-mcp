@@ -1,0 +1,6 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": ["scripts/*.{ts,mjs}"],
+	"ignore": ["tools/oxlint/anti-slop/**"],
+	"ignoreExportsUsedInFile": { "interface": true, "type": true }
+}

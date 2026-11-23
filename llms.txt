@@ -1,17 +1,18 @@
 # DB Timetable MCP Server
-> MCP server that converts Deutsche Bahn Timetables XML into reliable structured station-board data.
+> MCP server that turns Deutsche Bahn OpenBoards data into reliable structured station-board data.
 
 ## Core files
 - [README.md]: Installation, client configuration and operations.
 - [docs/api.md]: MCP tools, resources, parameters and error contract.
-- [docs/data-model.md]: Meaning of planned, changed and effective event values.
-- [docs/architecture.md]: Components, transports and security model.
+- [docs/data-model.md]: Meaning of planned and effective event values.
+- [docs/architecture.md]: Components, transports, station index and security model.
 - [src/server.ts]: MCP server factory.
-- [src/api/timetableParser.ts]: XML validation and semantic normalization.
+- [src/api/boardMapper.ts]: Mapping of OpenBoards responses and board merge.
+- [src/stations/stationSearch.ts]: Local station search.
 
 ## Key concepts
-- Use `getStationBoard` for a display-ready board.
-- Use `effective` values for current time, platform and path.
-- `planned` is the original schedule; `changed` contains reported deviations.
-- `getCurrentTimetable` is the DB full-change feed, retained under its legacy name.
-- DB data attribution is required under CC BY 4.0.
+- Use `findStations` first to get the EVA number.
+- Use `getDepartures` or `getArrivals` for one direction, `getStationBoard` for both.
+- Use `effective` values for current time and platform; `planned` is the schedule.
+- `via` is a selection of stops, never the full route.
+- `truncatedTransportTypes` is not empty when entries are missing.

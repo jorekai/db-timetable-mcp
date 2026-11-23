@@ -1,0 +1,51 @@
+name: Lint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Die strenge Stufe braucht den Basis-Commit des PRs.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # Basis-Gate: das ganze Repository steht auf 0 Fehlern, Warnungen
+      # blockieren nicht.
+      - name: oxlint
+        run: npx --no -- oxlint --quiet --format=github .
+
+      - name: oxfmt
+        run: npx --no -- oxfmt --check .
+
+      # Nur für die Dateien, die der PR ändert (.oxlintrc.changed.json). Der
+      # Bestand trägt diese Befunde noch.
+      - name: anti-slop (geänderte Dateien)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run lint:changed -- -- --format=github
+
+      # Bericht, kein Gate.
+      - name: Knip (informativ)
+        continue-on-error: true
+        run: npm run knip
