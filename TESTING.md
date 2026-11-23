@@ -11,7 +11,13 @@ npm run test:coverage
 npm audit --audit-level=high
 ```
 
-`npm run check` runs Biome, TypeScript, all Vitest suites, and the production build. The coverage thresholds are 85% for lines, functions, and statements, and 80% for branches.
+`npm run check` runs oxlint, oxfmt, TypeScript, all Vitest suites, and the production build. The coverage thresholds are 85% for lines, functions, and statements, and 80% for branches.
+
+## Lint and formatting
+
+- `npm run lint` checks the whole repository, `npm run lint:fix` fixes and formats.
+- `npm run lint:changed` applies the stricter anti-slop rules from `.oxlintrc.changed.json` to the files your branch changes compared with `master`. Existing code still has findings in this tier, so a file you touch has to meet it. A branch that changes the lint setup itself skips this tier.
+- `npm run knip` lists unused files, exports, and dependencies. It is a report and does not block CI.
 
 ## Test areas
 

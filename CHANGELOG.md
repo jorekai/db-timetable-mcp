@@ -35,6 +35,9 @@ subscription to the Open Boards product in the DB API Marketplace.
   license" in the README.
 - `tools/call` arguments with more than 1,000 elements are rejected before validation.
 - Rejected credentials are reported with the reason given by the API gateway.
+- The container image runs on Node.js 26 LTS, and CI also tests it.
+- oxlint and oxfmt replace Biome. Git hooks (lefthook), gitleaks, Semgrep, zizmor, and
+  knip check the code. This affects contributors only.
 
 ### Fixed
 
