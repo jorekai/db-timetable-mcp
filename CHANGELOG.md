@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- The HTTP transport answers a request body it cannot read with a JSON-RPC error
+  and logs only the status and the kind of error, never the body.
+- Updated express to 5.3 and dotenv to 18.
+
 ## [3.0.0] - 2026-11-23
 
 The server now uses the OpenBoards API instead of the Timetables API. It needs a

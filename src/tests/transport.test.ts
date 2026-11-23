@@ -72,6 +72,40 @@ describe("Streamable-HTTP-Transport", () => {
 		});
 	});
 
+	test.each([
+		["ungültiges JSON", '{"geheim":"SENTINEL', "application/json", 400, -32_700],
+		["zu großer Body", `"SENTINEL${"a".repeat(200_000)}"`, "application/json", 413, -32_600],
+		["unbekannter Zeichensatz", '"SENTINEL"', "application/json; charset=x-foo", 415, -32_600],
+	])(
+		"lehnt %s ab, ohne den Body zu protokollieren",
+		async (_name, body, contentType, status, code) => {
+			const spies = [
+				vi.spyOn(console, "error").mockImplementation(() => undefined),
+				vi.spyOn(process.stderr, "write").mockImplementation(() => true),
+			];
+
+			const response = await fetch(`${baseUrl}/mcp`, {
+				method: "POST",
+				headers: { "Content-Type": contentType },
+				body,
+			});
+
+			const output = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+
+			for (const spy of spies) {
+				spy.mockRestore();
+			}
+
+			const payload = await response.text();
+
+			expect(response.status).toBe(status);
+			expect(JSON.parse(payload)).toMatchObject({ jsonrpc: "2.0", error: { code }, id: null });
+			expect(payload).not.toContain("SENTINEL");
+			expect(output).toContain("HTTP-Anfrage abgelehnt");
+			expect(output).not.toContain("SENTINEL");
+		}
+	);
+
 	test("startet den konfigurierten HTTP-Listener auf einem freien Port", async () => {
 		const server = await startHttpServer(api, {
 			name: "DB Timetable MCP Server",
