@@ -4,7 +4,7 @@ import { z } from "zod";
 import { SERVER_INFO } from "./serverInfo.js";
 
 const DEFAULT_API_URL =
-	"https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1";
+	"https://apis.deutschebahn.com/db-api-marketplace/apis/open-boards/v1";
 
 const ConfigSchema = z.object({
 	server: z.object({
@@ -83,6 +83,11 @@ export function createConfig(env: Record<string, string | undefined>): Config {
 	) {
 		throw new Error(
 			"Ungültige Server-Konfiguration: ALLOWED_HOSTS ist bei HOST=0.0.0.0 oder HOST=:: erforderlich",
+		);
+	}
+	if (/\/timetables\/v1\/?$/.test(result.data.api.baseUrl)) {
+		throw new Error(
+			"Ungültige Server-Konfiguration: DB_TIMETABLE_BASE_URL zeigt auf die Timetables API, seit Version 3 gilt OpenBoards. Entferne die Variable oder passe sie an",
 		);
 	}
 	return result.data;

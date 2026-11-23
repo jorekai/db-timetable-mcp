@@ -6,7 +6,7 @@ import { SERVER_INFO } from "./serverInfo.js";
 import { registerTimetableTools } from "./tools/index.js";
 
 const INSTRUCTIONS =
-	"Nutze getStationBoard für eine korrekte Bahnhofstafel. In Ereignissen sind effective.time, effective.platform und effective.path die anzuzeigenden Werte. planned enthält den Sollzustand, changed ausschließlich gemeldete Abweichungen. getCurrentTimetable ist der vollständige Änderungsbestand und keine eigenständige Bahnhofstafel.";
+	"Ermittle die EVA-Nummer mit findStations und rufe dann getDepartures, getArrivals oder für beide Richtungen getStationBoard auf. In Ereignissen sind effective.time und effective.platform die anzuzeigenden Werte, planned enthält den Sollzustand. via ist nur eine Auswahl der Unterwegshalte. Ist truncatedTransportTypes nicht leer, fehlen Einträge.";
 
 export interface CreateServerOptions {
 	/** Name und Version, die Clients gemeldet bekommen. */

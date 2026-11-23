@@ -38,3 +38,9 @@ export class ResourceNotFoundError extends AppError {
 		super(message, "RESOURCE_NOT_FOUND", 404);
 	}
 }
+
+export class InvalidInputError extends AppError {
+	constructor(message: string) {
+		super(message, "INVALID_INPUT", 400);
+	}
+}

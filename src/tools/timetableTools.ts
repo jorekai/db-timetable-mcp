@@ -3,53 +3,74 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { TimetableApi } from "../api/timetableApi.js";
 import type { ApiResult } from "../api/types.js";
+import { parseBerlinTime } from "../utils/berlinTime.js";
 import { AppError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 
 const EvaNoSchema = z
 	.string()
 	.regex(/^\d{7}$/, "Die EVA-Nummer muss aus genau sieben Ziffern bestehen")
-	.describe("Siebenstellige EVA-Nummer, z.B. 8000105 für Frankfurt(Main)Hbf");
-
-function isValidDbDate(value: string): boolean {
-	const match = /^(\d{2})(\d{2})(\d{2})$/.exec(value);
-	if (!match) return false;
-	const year = 2000 + Number(match[1]);
-	const month = Number(match[2]);
-	const day = Number(match[3]);
-	const date = new Date(Date.UTC(year, month - 1, day));
-	return (
-		date.getUTCFullYear() === year &&
-		date.getUTCMonth() === month - 1 &&
-		date.getUTCDate() === day
+	.describe(
+		"Siebenstellige EVA-Nummer aus findStations, z.B. 8000105 für Frankfurt (Main) Hbf",
 	);
-}
 
-const DateSchema = z
-	.string()
-	.regex(/^\d{6}$/, "Das Datum muss das Format YYMMDD haben")
-	.refine(isValidDbDate, "Das Datum muss ein gültiger Kalendertag sein")
-	.describe("Betriebstag im DB-Format YYMMDD, z.B. 260717");
-
-const HourSchema = z
-	.string()
-	.regex(/^([01]\d|2[0-3])$/, "Die Stunde muss zwischen 00 und 23 liegen")
-	.describe("Stunde im 24-Stunden-Format HH, z.B. 10");
-
-const IncludeRawXmlSchema = z
-	.boolean()
-	.optional()
-	.default(false)
-	.describe("Zusätzlich die unveränderte DB-XML-Antwort zurückgeben");
-
-const TimetableInputSchema = z.object({
+const BoardInputSchema = z.object({
 	evaNo: EvaNoSchema,
-	includeRawXml: IncludeRawXmlSchema,
-});
-
-const PlanInputSchema = TimetableInputSchema.extend({
-	date: DateSchema,
-	hour: HourSchema,
+	startTime: z
+		.string()
+		.refine((value) => parseBerlinTime(value) !== undefined, {
+			message:
+				"startTime muss ein gültiger ISO-8601-Zeitpunkt sein, z.B. 2026-07-17T10:00",
+		})
+		.optional()
+		.describe(
+			"Beginn des Zeitfensters in ISO 8601. Ohne Offset gilt deutsche Ortszeit, z.B. 2026-07-17T10:00. Standard: jetzt. Die DB sagt Daten bis 30 Tage in die Vergangenheit zu.",
+		),
+	durationMinutes: z
+		.number()
+		.int()
+		.min(1)
+		.max(480)
+		.optional()
+		.default(60)
+		.describe("Länge des Zeitfensters in Minuten, höchstens 480"),
+	platforms: z
+		.array(z.string().trim().min(1).max(20))
+		.max(25)
+		.optional()
+		.describe('Nur diese Gleise, z.B. ["7", "8"]'),
+	transportTypes: z
+		.array(
+			z.enum([
+				"HIGH_SPEED_TRAIN",
+				"INTERCITY_TRAIN",
+				"INTER_REGIONAL_TRAIN",
+				"REGIONAL_TRAIN",
+				"CITY_TRAIN",
+			]),
+		)
+		.min(1)
+		.optional()
+		.describe(
+			"Nur diese Produktklassen: HIGH_SPEED_TRAIN = ICE, INTERCITY_TRAIN = IC/EC, REGIONAL_TRAIN = RE/RB, CITY_TRAIN = S-Bahn. Standard: alle",
+		),
+	includeNearbyStops: z
+		.boolean()
+		.optional()
+		.default(true)
+		.describe(
+			"Zusammengehörige Haltestellen einbeziehen, z.B. den Tiefbahnhof. Bei false nur die angegebene EVA-Nummer",
+		),
+	maxEntriesPerTransportType: z
+		.number()
+		.int()
+		.min(1)
+		.max(50)
+		.optional()
+		.default(50)
+		.describe(
+			"Höchstzahl der Einträge je Produktklasse. truncatedTransportTypes nennt abgeschnittene Klassen",
+		),
 });
 
 const StationInputSchema = z.object({
@@ -59,17 +80,25 @@ const StationInputSchema = z.object({
 		.min(1)
 		.max(100)
 		.describe("Stationsname, EVA-Nummer oder DS100-Code als Suchmuster"),
-	includeRawXml: IncludeRawXmlSchema,
+	limit: z
+		.number()
+		.int()
+		.min(1)
+		.max(100)
+		.optional()
+		.default(20)
+		.describe("Höchstzahl der Treffer; totalMatches nennt die Gesamtzahl"),
 });
 
-const RawXmlSchema = z.union([z.string(), z.record(z.string(), z.string())]);
-
 const ApiResultSchema = z.object({
-	source: z.literal("Deutsche Bahn Timetables API"),
+	source: z.enum([
+		"Deutsche Bahn OpenBoards API",
+		"DB InfraGO OpenStation (NeTEx)",
+	]),
 	retrievedAt: z.string(),
+	dataAsOf: z.string().optional(),
 	endpoint: z.string(),
 	data: z.unknown(),
-	rawXml: RawXmlSchema.optional(),
 });
 
 const annotations = {
@@ -124,8 +153,8 @@ export function registerTimetableTools(
 		{
 			title: "Live-Bahnhofstafel abrufen",
 			description:
-				"Liefert eine zuverlässige Bahnhofstafel, indem der Sollfahrplan der gewählten Stunde mit allen bekannten Echtzeitänderungen zusammengeführt wird. Für Gleise und Zeiten immer effective verwenden; planned und changed erklären die Abweichung.",
-			inputSchema: PlanInputSchema,
+				"Liefert Ankünfte und Abfahrten einer Station in einem Zeitfenster, je Zughalt zusammengeführt. Für Gleise und Zeiten immer effective verwenden; planned enthält den Sollzustand. Für nur eine Richtung getDepartures oder getArrivals nutzen.",
+			inputSchema: BoardInputSchema,
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
@@ -133,42 +162,29 @@ export function registerTimetableTools(
 	);
 
 	server.registerTool(
-		"getCurrentTimetable",
+		"getDepartures",
 		{
-			title: "Vollständige Fahrplanänderungen abrufen",
+			title: "Abfahrten abrufen",
 			description:
-				"Liefert den vollständigen aktuell bekannten Änderungsbestand der DB Timetables API für eine Station. Das sind Änderungsdaten und keine fertige Bahnhofstafel; für eine zusammengeführte Anzeige getStationBoard verwenden.",
-			inputSchema: TimetableInputSchema,
+				"Liefert die Abfahrten einer Station in einem Zeitfenster mit Soll- und Echtzeit, Gleis, Ziel, ausgewählten Unterwegshalten, Ausfällen und Meldungen. Ohne startTime beginnt das Fenster jetzt und umfasst 60 Minuten.",
+			inputSchema: BoardInputSchema,
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
-		(args) => execute(() => api.getCurrentTimetable(args)),
+		(args) => execute(() => api.getDepartures(args)),
 	);
 
 	server.registerTool(
-		"getRecentChanges",
+		"getArrivals",
 		{
-			title: "Jüngste Fahrplanänderungen abrufen",
+			title: "Ankünfte abrufen",
 			description:
-				"Liefert ausschließlich Änderungen, die der DB Timetables API innerhalb der letzten zwei Minuten bekannt wurden. Dieses Delta eignet sich für häufige Aktualisierungen nach einem initialen vollständigen Abruf.",
-			inputSchema: TimetableInputSchema,
+				"Liefert die Ankünfte einer Station in einem Zeitfenster mit Soll- und Echtzeit, Gleis, Startbahnhof, ausgewählten Unterwegshalten, Ausfällen und Meldungen. Ohne startTime beginnt das Fenster jetzt und umfasst 60 Minuten.",
+			inputSchema: BoardInputSchema,
 			outputSchema: ApiResultSchema,
 			annotations,
 		},
-		(args) => execute(() => api.getRecentChanges(args)),
-	);
-
-	server.registerTool(
-		"getPlannedTimetable",
-		{
-			title: "Sollfahrplan abrufen",
-			description:
-				"Liefert den statischen Sollfahrplan einer Station für einen Betriebstag und eine Stunde. Die Antwort enthält geplante Zeiten, Gleise und Fahrtwege, jedoch keine später bekannt gewordenen Echtzeitabweichungen.",
-			inputSchema: PlanInputSchema,
-			outputSchema: ApiResultSchema,
-			annotations,
-		},
-		(args) => execute(() => api.getPlannedTimetable(args)),
+		(args) => execute(() => api.getArrivals(args)),
 	);
 
 	server.registerTool(
@@ -176,10 +192,10 @@ export function registerTimetableTools(
 		{
 			title: "Bahnhöfe suchen",
 			description:
-				"Sucht Stationen anhand eines Namenspräfixes, einer EVA-Nummer oder eines DS100-Codes und liefert eindeutige Stationskennungen sowie bekannte Gleise und Metastationen als strukturiertes JSON.",
+				"Sucht deutsche Bahnhöfe anhand eines Namens, einer EVA-Nummer oder eines DS100-Codes und liefert Stationskennungen und Gleise. Die Suche läuft lokal in einem mitgelieferten Verzeichnis; dataAsOf nennt dessen Stand.",
 			inputSchema: StationInputSchema,
 			outputSchema: ApiResultSchema,
-			annotations,
+			annotations: { ...annotations, openWorldHint: false },
 		},
 		(args) => execute(() => api.findStations(args)),
 	);

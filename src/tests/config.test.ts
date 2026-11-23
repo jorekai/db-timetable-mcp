@@ -49,6 +49,21 @@ describe("Konfiguration", () => {
 		expect(config.server.endpoint).toBe("/legacy");
 	});
 
+	test("spricht standardmäßig OpenBoards an", () => {
+		expect(createConfig({}).api.baseUrl).toBe(
+			"https://apis.deutschebahn.com/db-api-marketplace/apis/open-boards/v1",
+		);
+	});
+
+	test("erklärt eine alte Timetables-URL, statt sie still zu verwenden", () => {
+		expect(() =>
+			createConfig({
+				DB_TIMETABLE_BASE_URL:
+					"https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1",
+			}),
+		).toThrow("OpenBoards");
+	});
+
 	test("weist ungültige Ports früh zurück", () => {
 		expect(() => createConfig({ PORT: "70000" })).toThrow(
 			"Ungültige Server-Konfiguration",
