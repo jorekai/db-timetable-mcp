@@ -1,8 +1,17 @@
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createHttpApp, startHttpServer } from "../transport.js";
+
+function listeningPort(server: Server) {
+	// SAFETY: address() is an AddressInfo for a listening TCP server, and every
+	// caller waits for "listening" on a host and port.
+	const address = server.address() as AddressInfo;
+
+	return address.port;
+}
 
 describe("Streamable-HTTP-Transport", () => {
 	const api = {
@@ -27,8 +36,7 @@ describe("Streamable-HTTP-Transport", () => {
 	beforeEach(async () => {
 		httpServer = app.listen(0, "127.0.0.1");
 		await new Promise<void>((resolve) => httpServer.once("listening", resolve));
-		const address = httpServer.address() as AddressInfo;
-		baseUrl = `http://127.0.0.1:${address.port}`;
+		baseUrl = `http://127.0.0.1:${listeningPort(httpServer)}`;
 	});
 
 	afterEach(async () => {
@@ -116,9 +124,7 @@ describe("Streamable-HTTP-Transport", () => {
 			endpoint: "/mcp",
 		});
 
-		const address = server.address() as AddressInfo;
-
-		expect(address.port).toBeGreaterThan(0);
+		expect(listeningPort(server)).toBeGreaterThan(0);
 		await new Promise<void>((resolve, reject) =>
 			server.close((error?: Error) => (error ? reject(error) : resolve()))
 		);
