@@ -17,7 +17,7 @@ Ein produktionsreifer Model Context Protocol Server für die offizielle OpenBoar
 
 ## Schnellstart
 
-Voraussetzungen: Node.js 22 oder 24 LTS sowie eine Anwendung mit Abonnement für das Produkt Open Boards im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards).
+Voraussetzungen: Node.js 22, 24 oder 26 LTS sowie eine Anwendung mit Abonnement für das Produkt Open Boards im [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards).
 
 ```bash
 git clone https://github.com/jorekai/db-timetable-mcp.git

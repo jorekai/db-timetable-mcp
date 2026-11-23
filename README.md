@@ -17,7 +17,7 @@ A Model Context Protocol server for the official Deutsche Bahn OpenBoards API. I
 
 ## Quick start
 
-Requirements: Node.js 22 or 24 LTS, and an application with a subscription to the Open Boards product in the [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards).
+Requirements: Node.js 22, 24, or 26 LTS, and an application with a subscription to the Open Boards product in the [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/product/open-boards).
 
 ```bash
 git clone https://github.com/jorekai/db-timetable-mcp.git

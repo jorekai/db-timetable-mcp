@@ -9,7 +9,7 @@ npm ci
 npm run check
 ```
 
-CI checks Node.js 22 and 24 LTS.
+CI checks Node.js 22, 24, and 26 LTS.
 
 ## Changes
 
