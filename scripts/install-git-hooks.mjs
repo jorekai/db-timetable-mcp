@@ -32,4 +32,8 @@ if (!existsSync(lefthook)) {
 
 const install = spawnSync(process.execPath, [lefthook, "install"], { cwd: root, stdio: "inherit" });
 
-process.exit(install.status ?? 1);
+// Zum Beispiel bei einer eigenen core.hooksPath. Fehlende Hooks dürfen die
+// Installation nicht scheitern lassen; die CI prüft dasselbe.
+if (install.status !== 0) {
+	console.warn("Git-Hooks nicht eingerichtet (Grund siehe oben). Die Installation läuft weiter.");
+}

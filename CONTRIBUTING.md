@@ -20,7 +20,7 @@ CI checks Node.js 22, 24, and 26 LTS.
 | `pre-commit` | oxlint and oxfmt on staged files, with automatic fixes, and gitleaks |
 | `pre-push` | No direct push to `master`, type check, lint including `lint:changed`, and gitleaks on outgoing commits |
 
-The secret scan needs a local [gitleaks](https://github.com/gitleaks/gitleaks) and is skipped with a note without it. CI runs it in any case. `--no-verify` skips the hooks for one command, and `LEFTHOOK=0` turns them off. If you use your own `core.hooksPath`, run `npx lefthook install` after deciding which one should win.
+The secret scan needs a local [gitleaks](https://github.com/gitleaks/gitleaks) and is skipped with a note without it. CI runs it in any case. `--no-verify` skips the hooks for one command, and `LEFTHOOK=0` turns them off. With your own `core.hooksPath` the hooks are not installed; lefthook prints the options.
 
 ## Changes
 
